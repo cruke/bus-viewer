@@ -6,44 +6,99 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
   <style>
-    html,body{margin:0;height:100%;font-family:system-ui,sans-serif;}
-    #map{height:100%;width:100%;}
-    .leaflet-popup-content{font-size:.9rem;line-height:1.3;}
+    html, body { margin:0; height:100%; font-family:system-ui, sans-serif; }
+    #map { height:100%; width:100%; }
+    .leaflet-popup-content { font-size:.9rem; line-height:1.3; }
 
-    /* Welcome */
-    #welcome{position:fixed;inset:0;background:rgba(0,0,0,.8);color:#fff;
-      display:flex;align-items:center;justify-content:center;flex-direction:column;
-      font-size:1.6rem;z-index:1000;transition:opacity .8s;}
-    #welcome.hide{opacity:0;pointer-events:none;}
+    /* Splash */
+    #welcome{
+      position:fixed; inset:0; background:rgba(0,0,0,.8); color:#fff;
+      display:flex; flex-direction:column; align-items:center; justify-content:center;
+      font-size:1.6rem; z-index:1000; transition:opacity .8s;
+    }
+    #welcome.hide{ opacity:0; pointer-events:none; }
 
-    /* Popup buttons (force white text) */
-    .popup-btn-container{display:flex;justify-content:space-between;margin-top:6px;gap:6px;}
-    .popup-btn{flex:1;text-align:center;background:#0078ff;color:#fff!important;padding:6px 0;
-      border-radius:6px;font-size:.8rem;text-decoration:none;transition:background .2s;}
-    .popup-btn:hover{background:#005fcc;color:#fff!important;}
+    /* Popup buttons */
+    .popup-btn-container{ display:flex; justify-content:space-between; margin-top:6px; gap:6px; }
+    .popup-btn{ flex:1; text-align:center; background:#0078ff; color:#fff!important; padding:6px 0;
+      border-radius:6px; font-size:.8rem; text-decoration:none; transition:background .2s; }
+    .popup-btn:hover{ background:#005fcc; color:#fff!important; }
 
-    .legend{position:absolute;bottom:82px;left:10px;background:rgba(255,255,255,.9);
-      padding:6px 10px;border-radius:8px;font-size:.9rem;box-shadow:0 2px 6px rgba(0,0,0,.25);
-      max-width:220px;z-index:700;display:block;}
-    .legend h4{margin:0 0 4px;font-size:.95rem;}
-    .legend-item{display:flex;align-items:center;gap:6px;margin:3px 0;}
-    .colorbox{width:16px;height:10px;border-radius:3px;}
-    .status{position:absolute;top:10px;right:10px;z-index:700;background:rgba(0,0,0,.7);
-      color:#fff;padding:6px 10px;border-radius:8px;font-size:.85rem;}
-    .controls{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);
-      display:grid;grid-template-columns:repeat(8,44px);gap:8px;z-index:800;}
-    .controls button{width:44px;height:44px;border:none;border-radius:12px;font-size:20px;
-      cursor:pointer;background:rgba(255,255,255,.95);box-shadow:0 2px 6px rgba(0,0,0,.25);}
-    .controls button:active{transform:scale(.97);}
+    /* Legend (Active Buses) with slide animation */
+    .legend{
+      position:absolute; bottom:82px; left:10px;
+      background:rgba(255,255,255,.95);
+      padding:6px 10px; border-radius:8px; font-size:.9rem;
+      box-shadow:0 2px 6px rgba(0,0,0,.25);
+      z-index:700; overflow-y:auto;
+      max-height:60vh;
+
+      /* animation props */
+      transform-origin: bottom left;
+      transform: scaleY(1);
+      opacity: 1;
+      transition: transform .28s ease, opacity .22s ease;
+    }
+    .legend.collapsed{
+      transform: scaleY(0);
+      opacity: 0;
+      pointer-events: none;
+    }
+    .legend h4{ margin:0 0 4px; font-size:.95rem; }
+    .legend-item{ display:flex; align-items:center; gap:6px; margin:3px 0; cursor:pointer; padding:2px 4px; border-radius:6px; }
+    .legend-item:hover{ background:#e6f0ff; }
+    .colorbox{ width:16px; height:10px; border-radius:3px; }
+
+    /* Updated label */
+    .status{
+      position:absolute; top:10px; right:10px; z-index:700;
+      background:rgba(0,0,0,.7); color:#fff; padding:6px 10px; border-radius:8px; font-size:.85rem;
+    }
+
+    /* Clickable UMPSA logo */
+    .logo-overlay{
+      position:absolute; top:50px; right:10px; z-index:700;
+      background:rgba(255,255,255,.85); border-radius:10px; padding:4px;
+      box-shadow:0 2px 6px rgba(0,0,0,.25); opacity:0; transition:opacity 1s ease-in;
+    }
+    .logo-overlay.show{ opacity:1; }
+    .logo-overlay img{
+      width:60px; height:60px; object-fit:contain;
+      transition:transform .4s ease, box-shadow .4s ease;
+    }
+    .logo-overlay:hover img{ transform:scale(1.05); box-shadow:0 0 10px rgba(0,120,255,.7); }
+
+    /* Controls */
+    .controls{
+      position:absolute; bottom:12px; left:50%; transform:translateX(-50%);
+      display:grid; grid-template-columns:repeat(8,44px); gap:8px; z-index:800;
+    }
+    .controls button{
+      width:44px; height:44px; border:none; border-radius:12px; font-size:20px; cursor:pointer;
+      background:rgba(255,255,255,.95); box-shadow:0 2px 6px rgba(0,0,0,.25);
+    }
+    .controls button:active{ transform:scale(.97); }
   </style>
 </head>
 <body>
+  <!-- Splash -->
   <div id="welcome">🚌 <b>Welcome to Live Bus Viewer</b><br/><small style="opacity:.8">Loading map…</small></div>
 
+  <!-- Map -->
   <div id="map"></div>
-  <div class="legend" id="legend"><h4>🚌 Active Buses</h4></div>
+
+  <!-- Active buses legend (starts visible) -->
+  <div class="legend" id="legend" aria-expanded="true"><h4>🚌 Active Buses</h4></div>
+
+  <!-- Updated label -->
   <div class="status" id="status">Loading…</div>
 
+  <!-- UMPSA logo -->
+  <a href="https://www.umpsa.edu.my" target="_blank" class="logo-overlay" id="logoOverlay" title="Visit UMPSA Website">
+    <img src="https://brand.umpsa.edu.my/images/2024/02/28/logo-cenderamata__735x732.png" alt="UMPSA Logo">
+  </a>
+
+  <!-- Controls -->
   <div class="controls">
     <button id="btnHome" title="Home">🏠</button>
     <button id="btnPrev" title="Previous bus">◀️</button>
@@ -51,247 +106,284 @@
     <button id="btnNext" title="Next bus">▶️</button>
     <button id="btnMyLoc" title="My location">📍</button>
     <button id="btnMapType" title="Switch map type">🗺️</button>
-    <button id="btnLegend" title="Show/Hide Active Buses">👁️</button>
+    <!-- Start visible => button shows '🙈' (tap to hide) -->
+    <button id="btnLegend" title="Hide Active Buses">🙈</button>
     <button id="btnFollow" title="Toggle follow">🎯</button>
   </div>
 
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
   <script>
-  // Welcome overlay (2s)
-  const welcome=document.getElementById('welcome');
-  setTimeout(()=>{welcome.classList.add('hide');setTimeout(()=>welcome.remove(),1000);},2000);
+    /* Splash + logo */
+    const welcome = document.getElementById('welcome');
+    const logoOverlay = document.getElementById('logoOverlay');
+    setTimeout(()=>{ welcome.classList.add('hide'); logoOverlay.classList.add('show'); setTimeout(()=>welcome.remove(),1000); }, 2000);
 
-  const WEB_APP_URL="https://script.google.com/macros/s/AKfycby6mh0UYXsQyms8ZHWGl5fgDM2yUCBH7TfQ53zTS810KGLS8rLFFcijVTpGpoo2Ab5uAg/exec";
-  const REFRESH_SEC=10;
-  const HOME=L.latLng(3.543784470063409,103.42902640748252);
+    /* Config */
+    const WEB_APP_URL="https://script.google.com/macros/s/AKfycby6mh0UYXsQyms8ZHWGl5fgDM2yUCBH7TfQ53zTS810KGLS8rLFFcijVTpGpoo2Ab5uAg/exec";
+    const REFRESH_SEC = 10;
+    const HOME = L.latLng(3.543784470063409, 103.42902640748252);
 
-  const map=L.map('map',{zoomControl:true}).setView([3.54,103.43],13);
-  const layers={
-    osm:L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'&copy; OpenStreetMap'}),
-    esriImagery:L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{attribution:'Tiles &copy; Esri'}),
-    esriStreets:L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',{attribution:'Tiles &copy; Esri'}),
-    tonerLite:L.tileLayer('https://stamen-tiles.a.ssl.fastly.net/toner-lite/{z}/{x}/{y}.png',{attribution:'Map tiles by Stamen'})
-  };
+    /* Map & layers */
+    const map = L.map('map',{ zoomControl:true }).setView([3.54,103.43],13);
+    const layers = {
+      osm: L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{ attribution:'&copy; OpenStreetMap' }),
+      esriImagery: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{ attribution:'Tiles &copy; Esri' }),
+      esriStreets: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',{ attribution:'Tiles &copy; Esri' }),
+    };
+    map.createPane('labels');
+    map.getPane('labels').style.zIndex = 650;
+    map.getPane('labels').style.pointerEvents = 'none';
+    const labelsOverlay = L.tileLayer('https://stamen-tiles.a.ssl.fastly.net/toner-labels/{z}/{x}/{y}.png',{ pane:'labels', opacity:0.9 });
 
-  // Labels overlay always on
-  map.createPane('labels');
-  map.getPane('labels').style.zIndex=650;
-  map.getPane('labels').style.pointerEvents='none';
-  const labelsOverlay=L.tileLayer('https://stamen-tiles.a.ssl.fastly.net/toner-labels/{z}/{x}/{y}.png',{pane:'labels',opacity:0.9});
-  let baseOrder=['osm','esriImagery','esriStreets','tonerLite'],baseIdx=0;
-  let baseLayer=layers[baseOrder[baseIdx]].addTo(map);
-  const ensureLabels=()=>{if(!map.hasLayer(labelsOverlay))labelsOverlay.addTo(map);};
-  ensureLabels();
+    let baseOrder=['osm','esriImagery','esriStreets'], baseIdx=0;
+    let baseLayer=layers[baseOrder[baseIdx]].addTo(map);
+    if(!map.hasLayer(labelsOverlay)) labelsOverlay.addTo(map);
 
-  function switchMapType(){map.removeLayer(baseLayer);
-    baseIdx=(baseIdx+1)%baseOrder.length;baseLayer=layers[baseOrder[baseIdx]].addTo(map);ensureLabels();}
-  function centerTo(ll){map.setView(ll,map.getZoom(),{animate:true});}
-
-  const buses={},statusEl=document.getElementById('status');
-  let busList=[],currentFocusId=null,myLocMarker=null;
-
-  // Follow control
-  let followEnabled=true;
-  const btnFollow=document.getElementById('btnFollow');
-  function setFollow(v,msg){
-    followEnabled=v;btnFollow.textContent=v?'🎯':'🚫';
-    btnFollow.title=v?'Follow ON (auto-center)':'Follow OFF';
-    if(msg) status(msg);
-  }
-  btnFollow.onclick=()=>setFollow(!followEnabled, followEnabled?'Follow ON':'Follow OFF');
-  // Pause follow if user pans
-  map.on('dragstart',()=>{ if(followEnabled){ setFollow(false,'Follow OFF (map moved)'); } });
-
-  const LAST_BUS_KEY='bus_viewer_last_bus';
-  const addrCache=new Map();
-  let firstLoadDone=false;  // only initial auto-focus once
-
-  function status(msg){statusEl.textContent=msg;}
-  function randomColor(){const h=Math.floor(Math.random()*360);return`hsl(${h},80%,50%)`;}
-  function makeBusIcon(id,color){return L.divIcon({className:'bus-icon',
-    html:`<div style="text-align:center">
-      <div style="background:${color};color:white;font-size:12px;padding:2px 5px;border-radius:5px;margin-bottom:2px">${id}</div>
-      <div style="font-size:22px">🚌</div></div>`,
-    iconSize:[40,46],iconAnchor:[20,40]});}
-  async function getStreetName(lat,lng){
-    const key=lat.toFixed(5)+','+lng.toFixed(5);
-    if(addrCache.has(key))return addrCache.get(key);
-    try{
-      const res=await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&accept-language=en`,{headers:{'User-Agent':'KKKUA-BusViewer'}});
-      const js=await res.json();const name=js.display_name||'';addrCache.set(key,name);return name;
-    }catch{return'';}
-  }
-
-  function bringToFrontBus(fid){
-    Object.keys(buses).forEach(id=>{
-      const b=buses[id];if(!b)return;
-      if(id===fid){b.marker.setZIndexOffset(1000);b.trail.bringToFront();}
-      else{b.marker.setZIndexOffset(0);b.trail.bringToBack();}
-    });
-  }
-
-  function rebuildBusList(data){
-    busList=Object.keys(data).sort(); // first bus = smallest ID
-    if(!currentFocusId || !busList.includes(currentFocusId)){
-      const saved=(()=>{try{return localStorage.getItem(LAST_BUS_KEY);}catch{return null;}})();
-      if(saved && busList.includes(saved)) currentFocusId=saved;
-      else currentFocusId=busList[0]||null;
-      if(currentFocusId) localStorage.setItem(LAST_BUS_KEY,currentFocusId);
+    function switchMapType(){
+      map.removeLayer(baseLayer);
+      baseIdx=(baseIdx+1)%baseOrder.length;
+      baseLayer=layers[baseOrder[baseIdx]].addTo(map);
+      if(!map.hasLayer(labelsOverlay)) labelsOverlay.addTo(map);
     }
-  }
 
-  // Helper: attach click handler once to a bus marker
-  function ensureMarkerClick(id){
-    const b=buses[id]; if(!b || b._clickBound) return;
-    b.marker.on('click', ()=>{
-      currentFocusId=id;
-      try{localStorage.setItem(LAST_BUS_KEY,currentFocusId);}catch{}
-      bringToFrontBus(currentFocusId);
-      setFollow(true, `Focused: Bus ${currentFocusId} (follow ON)`);
-      centerTo(b.marker.getLatLng());
-      b.marker.openPopup();
-    });
-    b._clickBound=true;
-  }
+    /* State */
+    const buses = {};         // id -> { marker, trail, color, _clickBound }
+    const addrCache = new Map();
+    const statusEl = document.getElementById('status');
+    const legendEl = document.getElementById('legend');
 
-  async function updateMap(data){
-    const ids=Object.keys(data),legend=document.getElementById('legend');
-    legend.innerHTML='<h4>🚌 Active Buses</h4>';
-    let any=false;
+    let busList=[], currentFocusId=null, myLocMarker=null;
+    let followEnabled = true;      // auto-center to focused bus
+    let firstLoadDone = false;     // avoid initial jump after load
+    let userInterrupted = false;   // set by pan/zoom/manual focus
 
-    for(const id of ids){
-      const rows=data[id]; if(!rows||!rows.length) continue;
-      const latest=rows[0]; const lat=+latest.lat, lng=+latest.lng;
-      if(!isFinite(lat)||!isFinite(lng)) continue;
-      any=true;
+    function status(msg){ statusEl.textContent = msg; }
+    const randomColor = () => `hsl(${Math.floor(Math.random()*360)},80%,50%)`;
+    function makeBusIcon(id,color){
+      return L.divIcon({
+        className:'bus-icon',
+        html:`<div style="text-align:center">
+                <div style="background:${color};color:white;font-size:12px;padding:2px 5px;border-radius:5px;margin-bottom:2px">${id}</div>
+                <div style="font-size:22px">🚌</div>
+              </div>`,
+        iconSize:[40,46], iconAnchor:[20,40]
+      });
+    }
 
-      if(!buses[id]){
-        const color=randomColor(), icon=makeBusIcon(id,color);
-        const marker=L.marker([lat,lng],{icon}).addTo(map);
-        const trail=L.polyline([],{color,weight:5,opacity:.8}).addTo(map);
-        buses[id]={marker,trail,color};
+    /* Pause follow on user pan/zoom */
+    map.on('dragstart', ()=>{ if(followEnabled){ followEnabled=false; btnFollow.textContent='🚫'; btnFollow.title='Follow OFF'; status('Follow OFF (map moved)'); } userInterrupted=true; });
+    map.on('zoomstart', ()=>{ userInterrupted = true; });
+
+    function bringToFrontBus(fid){
+      Object.keys(buses).forEach(id=>{
+        const b=buses[id]; if(!b) return;
+        if(id===fid){ b.marker.setZIndexOffset(1000); b.trail.bringToFront(); }
+        else { b.marker.setZIndexOffset(0); b.trail.bringToBack(); }
+      });
+    }
+    function centerTo(ll){ map.setView(ll, map.getZoom(), { animate:true }); }
+
+    async function getStreetName(lat,lng){
+      const k=lat.toFixed(5)+','+lng.toFixed(5);
+      if(addrCache.has(k)) return addrCache.get(k);
+      try{
+        const res=await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&accept-language=en`);
+        const js=await res.json();
+        const name=js.display_name||'';
+        addrCache.set(k,name);
+        return name;
+      }catch{ return ''; }
+    }
+
+    function rebuildBusList(data){
+      busList = Object.keys(data).sort();
+      if(!currentFocusId || !busList.includes(currentFocusId)){
+        currentFocusId = busList[0] || null;
       }
-      const b=buses[id]; const pts=rows.map(r=>[+r.lat,+r.lng]);
-      b.trail.setLatLngs(pts); b.marker.setLatLng([lat,lng]);
-
-      // popup with share buttons
-      const addr=await getStreetName(lat,lng);
-      const gmapsLink=`https://www.google.com/maps?q=${lat},${lng}`;
-      const gmapsDir=`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
-      b.marker.bindPopup(
-        `<b>Bus ${id}</b><br>
-         Dest: ${latest.destination||'-'}<br>
-         ETA: ${latest.eta||'-'}<br>
-         Driver: ${latest.driver||'-'}<br>
-         Current: ${addr||'(Locating...)'}<br>
-         Last: ${new Date(latest.timestamp).toLocaleString()}<br>
-         <div class="popup-btn-container">
-           <a href="${gmapsLink}" target="_blank" class="popup-btn" style="color:#fff">📍 Maps</a>
-           <a href="${gmapsDir}" target="_blank" class="popup-btn" style="color:#fff">🚗 Go</a>
-         </div>`
-      );
-
-      // add to legend
-      const leg=document.createElement('div');
-      leg.className='legend-item';
-      leg.innerHTML=`<div class="colorbox" style="background:${b.color}"></div> <div>${id} (${latest.destination||'-'})</div>`;
-      legend.appendChild(leg);
-
-      // make sure marker click adopts focus + centers + follow
-      ensureMarkerClick(id);
     }
 
-    // remove stale buses
-    Object.keys(buses).forEach(id=>{
-      if(!ids.includes(id)){
-        map.removeLayer(buses[id].marker);
-        map.removeLayer(buses[id].trail);
-        delete buses[id];
+    function focusBus(id, { openPopup=false } = {}){
+      if(!id || !buses[id]) return;
+      currentFocusId = id;
+      bringToFrontBus(id);
+      if(followEnabled) centerTo(buses[id].marker.getLatLng());
+      if(openPopup) buses[id].marker.openPopup();
+      userInterrupted = true;
+    }
+
+    function ensureMarkerClick(id){
+      const b=buses[id]; if(!b || b._clickBound) return;
+      b.marker.on('click', ()=> focusBus(id, { openPopup:true }) ); // map icon click opens popup
+      b._clickBound = true;
+    }
+
+    function buildLegendEntry(id,dest,color){
+      const d=document.createElement('div');
+      d.className='legend-item';
+      d.innerHTML=`<div class="colorbox" style="background:${color}"></div><div>${id} (${dest||'-'})</div>`;
+      d.onclick=()=>{ if(buses[id]){ followEnabled=true; btnFollow.textContent='🎯'; btnFollow.title='Follow ON'; focusBus(id, { openPopup:false }); } };
+      return d;
+    }
+
+    async function updateMap(data){
+      const ids=Object.keys(data);
+      legendEl.innerHTML = '<h4>🚌 Active Buses</h4>';
+      let any=false;
+
+      for(const id of ids){
+        const rows=data[id]; if(!rows || !rows.length) continue;
+        const latest=rows[0];
+        const lat=+latest.lat, lng=+latest.lng; if(!isFinite(lat)||!isFinite(lng)) continue;
+        any=true;
+
+        if(!buses[id]){
+          const c=randomColor(), icon=makeBusIcon(id,c);
+          const marker=L.marker([lat,lng],{icon}).addTo(map);
+          const trail=L.polyline([],{color:c,weight:5,opacity:.8}).addTo(map);
+          buses[id]={marker,trail,color:c};
+        }
+
+        const b=buses[id];
+        b.trail.setLatLngs(rows.map(r=>[+r.lat,+r.lng]));
+        b.marker.setLatLng([lat,lng]);
+
+        const addr=await getStreetName(lat,lng);
+        const link=`https://www.google.com/maps?q=${lat},${lng}`;
+        const dir =`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
+        b.marker.bindPopup(
+          `<b>Bus ${id}</b><br>
+           Dest: ${latest.destination||'-'}<br>
+           ETA: ${latest.eta||'-'}<br>
+           Driver: ${latest.driver||'-'}<br>
+           Current: ${addr||'(Locating...)'}<br>
+           Last: ${new Date(latest.timestamp).toLocaleString()}
+           <div class="popup-btn-container">
+             <a href="${link}" target="_blank" class="popup-btn">📍 Maps</a>
+             <a href="${dir}" target="_blank" class="popup-btn">🚗 Go</a>
+           </div>`
+        );
+
+        ensureMarkerClick(id);
+        legendEl.appendChild( buildLegendEntry(id, latest.destination, b.color) );
       }
-    });
 
-    rebuildBusList(data);
+      // remove stale
+      Object.keys(buses).forEach(id=>{
+        if(!ids.includes(id)){
+          map.removeLayer(buses[id].marker);
+          map.removeLayer(buses[id].trail);
+          delete buses[id];
+        }
+      });
 
-    // First load: focus first bus and enable follow (no fitBounds)
-    if(!firstLoadDone && any && currentFocusId && buses[currentFocusId]){
-      bringToFrontBus(currentFocusId);
-      centerTo(buses[currentFocusId].marker.getLatLng());
-      setFollow(true,'Focused first bus (follow ON)');
-      firstLoadDone=true;
-    } else if(currentFocusId){
-      bringToFrontBus(currentFocusId);
+      rebuildBusList(data);
+
+      // First load: focus first bus (no popup), legend visible
+      if(!firstLoadDone && currentFocusId){
+        followEnabled = true; btnFollow.textContent='🎯'; btnFollow.title='Follow ON';
+        focusBus(currentFocusId, { openPopup:false });
+        firstLoadDone = true;
+      }
+
+      // Keep centering if following
+      if(followEnabled && currentFocusId && buses[currentFocusId]){
+        centerTo(buses[currentFocusId].marker.getLatLng());
+      }
+
+      status(any ? `Updated: ${new Date().toLocaleTimeString()}` : 'No buses yet');
     }
 
-    status(any?`Updated: ${new Date().toLocaleTimeString()}`:'No buses yet');
-
-    // Auto-follow (won't change zoom), only if enabled
-    if(firstLoadDone && followEnabled && currentFocusId && buses[currentFocusId]){
-      centerTo(buses[currentFocusId].marker.getLatLng());
+    async function refresh(){
+      try{
+        const res = await fetch(WEB_APP_URL+'?json=1', { cache:'no-store' });
+        const js = await res.json();
+        if(js && js.ok) updateMap(js.buses);
+        else status('Failed to load data');
+      }catch(e){
+        status('Fetch failed'); console.warn('Fetch failed:', e);
+      }
     }
-  }
+    refresh();
+    setInterval(refresh, REFRESH_SEC*1000);
 
-  async function refresh(){
-    try{
-      const res=await fetch(WEB_APP_URL+'?json=1',{cache:'no-store'});
-      const js=await res.json();
-      if(js&&js.ok) updateMap(js.buses);
-      else status('Failed to load data');
-    }catch(e){status('Fetch failed');console.warn(e);}
-  }
-  refresh(); setInterval(refresh, REFRESH_SEC*1000);
+    /* Controls */
+    const btnHome     = document.getElementById('btnHome');
+    const btnPrev     = document.getElementById('btnPrev');
+    const btnRecenter = document.getElementById('btnRecenter');
+    const btnNext     = document.getElementById('btnNext');
+    const btnMyLoc    = document.getElementById('btnMyLoc');
+    const btnMapType  = document.getElementById('btnMapType');
+    const btnLegend   = document.getElementById('btnLegend');
+    const btnFollow   = document.getElementById('btnFollow');
 
-  // Controls
-  const btnLegend=document.getElementById('btnLegend'),legendEl=document.getElementById('legend');
-  let legendVisible=true;
-  function setLegendVisible(v){legendVisible=v;legendEl.style.display=v?'block':'none';btnLegend.textContent=v?'🙈':'👁️';}
-  btnLegend.onclick=()=>setLegendVisible(!legendVisible);
-  setLegendVisible(true);
+    btnHome.onclick = () => {
+      centerTo(HOME);
+      followEnabled = true; btnFollow.textContent='🎯'; btnFollow.title='Follow ON';
+      status('Home view (follow ON)');
+      userInterrupted = true;
+    };
 
-  document.getElementById('btnHome').onclick=()=>{
-    centerTo(HOME); setFollow(true,'Home view (follow ON)');
-  };
+    btnPrev.onclick = () => {
+      if(!busList.length) return;
+      const idx = busList.indexOf(currentFocusId);
+      const id  = (idx <= 0) ? busList[busList.length-1] : busList[idx-1];
+      followEnabled = true; btnFollow.textContent='🎯'; btnFollow.title='Follow ON';
+      focusBus(id, { openPopup:false }); // no popup on prev/next
+    };
 
-  document.getElementById('btnPrev').onclick=()=>{
-    if(!busList.length)return;
-    const idx=busList.indexOf(currentFocusId);
-    currentFocusId=(idx<=0)?busList[busList.length-1]:busList[idx-1];
-    try{localStorage.setItem(LAST_BUS_KEY,currentFocusId);}catch{}
-    const b=buses[currentFocusId];
-    if(b){centerTo(b.marker.getLatLng());bringToFrontBus(currentFocusId);}
-    setFollow(true,`Focused: Bus ${currentFocusId} (follow ON)`);
-  };
+    btnNext.onclick = () => {
+      if(!busList.length) return;
+      const idx = busList.indexOf(currentFocusId);
+      const id  = busList[(idx+1) % busList.length];
+      followEnabled = true; btnFollow.textContent='🎯'; btnFollow.title='Follow ON';
+      focusBus(id, { openPopup:false }); // no popup on prev/next
+    };
 
-  document.getElementById('btnNext').onclick=()=>{
-    if(!busList.length)return;
-    const idx=busList.indexOf(currentFocusId);
-    currentFocusId=busList[(idx+1)%busList.length];
-    try{localStorage.setItem(LAST_BUS_KEY,currentFocusId);}catch{}
-    const b=buses[currentFocusId];
-    if(b){centerTo(b.marker.getLatLng());bringToFrontBus(currentFocusId);}
-    setFollow(true,`Focused: Bus ${currentFocusId} (follow ON)`);
-  };
+    btnRecenter.onclick = () => {
+      if(currentFocusId && buses[currentFocusId]){
+        followEnabled = true; btnFollow.textContent='🎯'; btnFollow.title='Follow ON';
+        centerTo(buses[currentFocusId].marker.getLatLng());
+        status('Recentered (follow ON)');
+      } else {
+        status('No focused bus');
+      }
+    };
 
-  document.getElementById('btnRecenter').onclick=()=>{
-    if(currentFocusId&&buses[currentFocusId]){
-      centerTo(buses[currentFocusId].marker.getLatLng());
-      bringToFrontBus(currentFocusId);
-      setFollow(true,'Recentered (follow ON)');
-    }else status('No focused bus');
-  };
+    btnMyLoc.onclick = () => {
+      if(!navigator.geolocation) return status('Geolocation unsupported');
+      navigator.geolocation.getCurrentPosition(pos=>{
+        const ll = L.latLng(pos.coords.latitude, pos.coords.longitude);
+        if(!myLocMarker){
+          myLocMarker = L.marker(ll, {
+            icon: L.divIcon({ className:'myloc', html:'<div style="font-size:22px">📍</div>', iconSize:[24,24], iconAnchor:[12,22] })
+          }).addTo(map);
+        }else{
+          myLocMarker.setLatLng(ll);
+        }
+        centerTo(ll);
+        followEnabled = true; btnFollow.textContent='🎯'; btnFollow.title='Follow ON';
+        status('My location (follow ON)');
+        userInterrupted = true;
+      }, err=>status('GPS error: '+err.message), { enableHighAccuracy:true });
+    };
 
-  document.getElementById('btnMyLoc').onclick=()=>{
-    if(!navigator.geolocation)return status('Geolocation unsupported');
-    navigator.geolocation.getCurrentPosition(pos=>{
-      const ll=L.latLng(pos.coords.latitude,pos.coords.longitude);
-      if(!myLocMarker){
-        myLocMarker=L.marker(ll,{icon:L.divIcon({className:'myloc',html:'<div style="font-size:22px">📍</div>',iconSize:[24,24],iconAnchor:[12,22]})}).addTo(map);
-      }else myLocMarker.setLatLng(ll);
-      centerTo(ll); setFollow(true,'My location (follow ON)');
-    },err=>status('GPS error: '+err.message),{enableHighAccuracy:true});
-  };
+    btnMapType.onclick = () => { switchMapType(); status('Map type switched'); };
 
-  document.getElementById('btnMapType').onclick=switchMapType;
+    // Legend slide toggle with icon swap
+    btnLegend.onclick = () => {
+      const isCollapsed = legendEl.classList.toggle('collapsed');
+      legendEl.setAttribute('aria-expanded', String(!isCollapsed));
+      // When visible => 🙈 (tap to hide). When collapsed => 👁️ (tap to show).
+      btnLegend.textContent = isCollapsed ? '👁️' : '🙈';
+      btnLegend.title = isCollapsed ? 'Show Active Buses' : 'Hide Active Buses';
+    };
+
+    btnFollow.onclick = () => {
+      followEnabled = !followEnabled;
+      btnFollow.textContent = followEnabled ? '🎯' : '🚫';
+      btnFollow.title = followEnabled ? 'Follow ON' : 'Follow OFF';
+      status(followEnabled ? 'Follow ON' : 'Follow OFF');
+    };
   </script>
 </body>
 </html>
-
