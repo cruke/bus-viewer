@@ -6,287 +6,308 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
   <style>
-    html, body { margin:0; height:100%; font-family:system-ui,sans-serif; }
-    #map { height:100%; width:100%; }
-    .leaflet-popup-content { font-size:0.9rem; line-height:1.3; }
+    html,body{margin:0;height:100%;font-family:system-ui,sans-serif;}
+    #map{height:100%;width:100%;}
+    .leaflet-popup-content{font-size:.9rem;line-height:1.3;}
 
-    /* Welcome splash */
-    #welcome {
-      position: fixed;
-      inset: 0;
-      background: linear-gradient(135deg, #0078ff, #00c6ff);
-      color: white;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      gap: 14px;
-      font-size: 1.6rem;
-      font-weight: 600;
-      z-index: 2000;
-      transition: opacity 0.8s ease;
-      text-align: center;
-      padding: 0 20px;
+    /* ==== WELCOME POPUP ==== */
+    #welcome{
+      position:fixed;inset:0;
+      background:rgba(0,0,0,0.8);
+      color:#fff;display:flex;
+      align-items:center;justify-content:center;
+      flex-direction:column;
+      font-size:1.6rem;z-index:1000;
+      transition:opacity .8s ease;
     }
-    #welcome .spinner {
-      width: 56px; height: 56px;
-      border: 4px solid rgba(255,255,255,0.35);
-      border-top-color: #fff;
-      border-radius: 50%;
-      animation: spin 1s linear infinite;
-    }
-    @keyframes spin { to { transform: rotate(360deg); } }
-    #welcome .hint { font-size: 1rem; font-weight: 400; opacity: 0.9; }
-    #welcome .sub { font-size: 0.95rem; font-weight: 500; opacity: 0.85; }
+    #welcome.hide{opacity:0;pointer-events:none;}
 
-    /* Legend */
-    .legend {
-      position:absolute; bottom:82px; left:10px;
-      background:rgba(255,255,255,0.9); padding:6px 10px;
-      border-radius:8px; font-size:0.9rem; box-shadow:0 2px 6px rgba(0,0,0,0.25);
-      max-width:220px; z-index:700; display:none;
+    .legend{
+      position:absolute;bottom:82px;left:10px;
+      background:rgba(255,255,255,0.9);padding:6px 10px;
+      border-radius:8px;font-size:.9rem;
+      box-shadow:0 2px 6px rgba(0,0,0,.25);
+      max-width:220px;z-index:700;display:none;
     }
-    .legend h4 { margin:0 0 4px 0; font-size:0.95rem; }
-    .legend-item { display:flex; align-items:center; gap:6px; margin:3px 0; }
-    .colorbox { width:16px; height:10px; border-radius:3px; }
-
-    /* Status toast */
-    .status {
-      position:absolute; top:10px; right:10px; z-index:700;
-      background:rgba(0,0,0,.7); color:#fff; padding:6px 10px; border-radius:8px; font-size:.85rem;
+    .legend h4{margin:0 0 4px 0;font-size:.95rem;}
+    .legend-item{display:flex;align-items:center;gap:6px;margin:3px 0;}
+    .colorbox{width:16px;height:10px;border-radius:3px;}
+    .status{
+      position:absolute;top:10px;right:10px;z-index:700;
+      background:rgba(0,0,0,.7);color:#fff;padding:6px 10px;
+      border-radius:8px;font-size:.85rem;
     }
-
-    /* Controls */
-    .controls {
-      position:absolute; bottom:12px; left:50%; transform:translateX(-50%);
-      display:grid; grid-template-columns:repeat(7,44px); gap:8px;
-      z-index:800;
+    .controls{
+      position:absolute;bottom:12px;left:50%;transform:translateX(-50%);
+      display:grid;grid-template-columns:repeat(8,44px);gap:8px;z-index:800;
     }
-    .controls button {
-      width:44px; height:44px; border:none; border-radius:12px;
-      font-size:20px; cursor:pointer;
+    .controls button{
+      width:44px;height:44px;border:none;border-radius:12px;
+      font-size:20px;cursor:pointer;
       background:rgba(255,255,255,0.95);
       box-shadow:0 2px 6px rgba(0,0,0,.25);
     }
-    .controls button:active { transform:scale(0.97); }
+    .controls button:active{transform:scale(.97);}
   </style>
 </head>
 <body>
-  <!-- Welcome splash -->
+  <!-- Welcome Popup -->
   <div id="welcome">
-    <div>🚌 <b>Live Bus Viewer</b></div>
-    <div class="spinner"></div>
-    <div class="sub" id="welcomeSub">Loading active buses…</div>
-    <div class="hint">💡 Press ◀️ ▶️ to switch between buses</div>
+    🚌 <b>Welcome to Live Bus Viewer</b><br/>
+    <small style="opacity:.8">Loading map …</small>
   </div>
 
-  <!-- Map UI -->
   <div id="map"></div>
   <div class="legend" id="legend"><h4>🚌 Active Buses</h4></div>
   <div class="status" id="status">Loading…</div>
 
+  <!-- Recenter button placed between Prev and Next -->
   <div class="controls">
     <button id="btnHome" title="Home">🏠</button>
     <button id="btnPrev" title="Previous bus">◀️</button>
+    <button id="btnRecenter" title="Recenter on current bus">🔄</button>
     <button id="btnNext" title="Next bus">▶️</button>
     <button id="btnMyLoc" title="My location">📍</button>
     <button id="btnMapType" title="Switch map type">🗺️</button>
     <button id="btnLegend" title="Show/Hide Active Buses">👁️</button>
-    <button id="btnFollow" title="Follow bus">🎯</button>
+    <button id="btnFollow" title="Toggle follow">🎯</button>
   </div>
 
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
   <script>
-    /* ---------- CONFIG ---------- */
-    const WEB_APP_URL = "https://script.google.com/macros/s/AKfycby6mh0UYXsQyms8ZHWGl5fgDM2yUCBH7TfQ53zTS810KGLS8rLFFcijVTpGpoo2Ab5uAg/exec";
-    const REFRESH_SEC = 10;
-    const HOME = L.latLng(3.543784470063409, 103.42902640748252);
+  /* ==== WELCOME POPUP AUTO-HIDE ==== */
+  const welcomeEl=document.getElementById('welcome');
+  setTimeout(()=>{welcomeEl.classList.add('hide');
+    setTimeout(()=>welcomeEl.remove(),1000);
+  },2000);
 
-    /* ---------- MAP SETUP ---------- */
-    const map = L.map('map').setView([3.54,103.43],13);
-    const layers = {
-      osm: L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'&copy; OpenStreetMap'}),
-      esriImagery: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{attribution:'Tiles &copy; Esri'}),
-      esriStreets: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',{attribution:'Tiles &copy; Esri'}),
-      tonerLite: L.tileLayer('https://stamen-tiles.a.ssl.fastly.net/toner-lite/{z}/{x}/{y}.png',{attribution:'Map tiles by Stamen'})
-    };
-    map.createPane('labels');
-    map.getPane('labels').style.zIndex = 650;
-    map.getPane('labels').style.pointerEvents = 'none';
-    const labelsOverlay = L.tileLayer('https://stamen-tiles.a.ssl.fastly.net/toner-labels/{z}/{x}/{y}.png', { pane:'labels', opacity:0.9 });
-    let baseOrder = ['osm','esriImagery','esriStreets','tonerLite'];
-    let baseIdx = 0;
-    let baseLayer = layers[baseOrder[baseIdx]].addTo(map);
-    if (!map.hasLayer(labelsOverlay)) labelsOverlay.addTo(map);
-    function switchMapType() {
-      map.removeLayer(baseLayer);
-      baseIdx = (baseIdx + 1) % baseOrder.length;
-      baseLayer = layers[baseOrder[baseIdx]].addTo(map);
-      if (!map.hasLayer(labelsOverlay)) labelsOverlay.addTo(map);
-    }
-    function centerTo(ll) { map.setView(ll, map.getZoom(), { animate:true }); }
+  /* ==== MAP + VIEWER LOGIC ==== */
+  const WEB_APP_URL=
+    (typeof ScriptApp!=='undefined'&&ScriptApp.getService)
+      ? ScriptApp.getService().getUrl()
+      : "https://script.google.com/macros/s/AKfycby6mh0UYXsQyms8ZHWGl5fgDM2yUCBH7TfQ53zTS810KGLS8rLFFcijVTpGpoo2Ab5uAg/exec";
+  const REFRESH_SEC=10;
+  const HOME=L.latLng(3.543784470063409,103.42902640748252);
 
-    /* ---------- STATE ---------- */
-    const buses = {}, statusEl = document.getElementById('status');
-    let busList = [], currentFocusId = null, myLocMarker = null;
-    function status(msg){ statusEl.textContent = msg; }
+  const map=L.map('map',{zoomControl:true}).setView([3.54,103.43],13);
+  const layers={
+    osm:L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'&copy; OpenStreetMap'}),
+    esriImagery:L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{attribution:'Tiles &copy; Esri'}),
+    esriStreets:L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',{attribution:'Tiles &copy; Esri'}),
+    tonerLite:L.tileLayer('https://stamen-tiles.a.ssl.fastly.net/toner-lite/{z}/{x}/{y}.png',{attribution:'Map tiles by Stamen'})
+  };
+  map.createPane('labels');
+  map.getPane('labels').style.zIndex=650;
+  map.getPane('labels').style.pointerEvents='none';
+  const labelsOverlay=L.tileLayer('https://stamen-tiles.a.ssl.fastly.net/toner-labels/{z}/{x}/{y}.png',{pane:'labels',opacity:0.9});
+  let baseOrder=['osm','esriImagery','esriStreets','tonerLite'];
+  let baseIdx=0;
+  let baseLayer=layers[baseOrder[baseIdx]].addTo(map);
+  const ensureLabels=()=>{if(!map.hasLayer(labelsOverlay))labelsOverlay.addTo(map);};
+  ensureLabels();
+  function switchMapType(){map.removeLayer(baseLayer);
+    baseIdx=(baseIdx+1)%baseOrder.length;
+    baseLayer=layers[baseOrder[baseIdx]].addTo(map);
+    ensureLabels();}
+  function centerTo(ll){map.setView(ll,map.getZoom(),{animate:true});}
 
-    /* ---------- CLIPBOARD HELPERS ---------- */
-    async function copyText(text){
-      try {
-        if (navigator.clipboard && window.isSecureContext) {
-          await navigator.clipboard.writeText(text);
-        } else {
-          // Fallback: temporary textarea
-          const ta = document.createElement('textarea');
-          ta.value = text;
-          ta.style.position = 'fixed';
-          ta.style.left = '-9999px';
-          document.body.appendChild(ta);
-          ta.focus(); ta.select();
-          document.execCommand('copy');
-          document.body.removeChild(ta);
-        }
-        status('📋 Copied: ' + text);
-      } catch (e) {
-        status('Copy failed');
-      }
-    }
-    // Expose a global for popup inline onclick
-    window.copyCoords = (lat, lng) => copyText(`${lat},${lng}`);
+  const buses={},statusEl=document.getElementById('status');
+  let busList=[],currentFocusId=null,myLocMarker=null;
+  const FOLLOW_KEY='bus_viewer_follow',LAST_BUS_KEY='bus_viewer_last_bus';
+  let followEnabled=true,followTarget={type:'none',id:null};
 
-    /* ---------- REVERSE GEOCODE CACHE ---------- */
-    const addrCache = new Map();
-    async function getStreetName(lat,lng){
-      const key = lat.toFixed(5)+','+lng.toFixed(5);
-      if (addrCache.has(key)) return addrCache.get(key);
-      try{
-        const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
-        const js = await res.json();
-        const name = js.display_name || '';
-        addrCache.set(key, name);
-        return name;
-      }catch{ return ''; }
-    }
+  try{const s=JSON.parse(localStorage.getItem(FOLLOW_KEY));
+      if(typeof s==='boolean')followEnabled=s;}catch{}
+  try{const b=localStorage.getItem(LAST_BUS_KEY);
+      if(b)currentFocusId=b;}catch{}
 
-    function randomColor(){ const h=Math.floor(Math.random()*360); return `hsl(${h},80%,50%)`; }
-    function makeBusIcon(id,color){
-      return L.divIcon({
-        className:'bus-icon',
-        html:`<div style="text-align:center">
-                <div style="background:${color};color:white;font-size:12px;padding:2px 5px;border-radius:5px;margin-bottom:2px">${id}</div>
-                <div style="font-size:22px">🚌</div>
-              </div>`,
-        iconSize:[40,46], iconAnchor:[20,40]
+  const btnFollow=document.getElementById('btnFollow');
+  function setFollow(v,save=true){
+    followEnabled=v;
+    btnFollow.textContent=v?'🎯':'🚫';
+    btnFollow.title=v?'Follow ON (auto-center)':'Follow OFF';
+    status(`Follow ${v?'ON':'OFF'}`);
+    if(save)localStorage.setItem(FOLLOW_KEY,JSON.stringify(v));
+  }
+  btnFollow.onclick=()=>setFollow(!followEnabled);
+  setFollow(followEnabled,false);
+  map.on('dragstart',()=>{if(followEnabled)setFollow(false);});
+
+  const addrCache=new Map();
+  async function getStreetName(lat,lng){
+    const key=lat.toFixed(5)+','+lng.toFixed(5);
+    if(addrCache.has(key))return addrCache.get(key);
+    try{
+      const res=await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&accept-language=en`,
+        {headers:{'User-Agent':'KKKUA-BusTracker'}});
+      if(!res.ok)return'';
+      const js=await res.json();
+      const name=js.display_name||'';
+      addrCache.set(key,name);
+      return name;
+    }catch{return'';}
+  }
+  function randomColor(){const h=Math.floor(Math.random()*360);
+    return`hsl(${h},80%,50%)`;}
+  function makeBusIcon(id,color){
+    return L.divIcon({className:'bus-icon',
+      html:`<div style="text-align:center">
+              <div style="background:${color};color:white;font-size:12px;
+                          padding:2px 5px;border-radius:5px;margin-bottom:2px">${id}</div>
+              <div style="font-size:22px">🚌</div></div>`,
+      iconSize:[40,46],iconAnchor:[20,40]});
+  }
+  function status(msg){statusEl.textContent=msg;}
+
+  function updateBusListFromData(data){
+    const ids=Object.keys(data);
+    busList=ids.sort();
+    if(!currentFocusId||!busList.includes(currentFocusId)){
+      let latestBus=null,latestTime=0;
+      ids.forEach(id=>{
+        const t=new Date(data[id][0]?.timestamp||0).getTime();
+        if(t>latestTime){latestTime=t;latestBus=id;}
       });
+      currentFocusId=latestBus||busList[0]||null;
+      if(currentFocusId)localStorage.setItem(LAST_BUS_KEY,currentFocusId);
     }
+  }
+  function bringToFrontBus(fid){
+    Object.keys(buses).forEach(id=>{
+      const b=buses[id];
+      if(!b)return;
+      if(id===fid){b.marker.setZIndexOffset(1000);b.trail.bringToFront();}
+      else{b.marker.setZIndexOffset(0);b.trail.bringToBack();}
+    });
+  }
 
-    function bringToFrontBus(id){
-      Object.values(buses).forEach(b=>{ b.marker.setZIndexOffset(0); b.trail.bringToBack(); });
-      if (buses[id]){ buses[id].marker.setZIndexOffset(1000); buses[id].trail.bringToFront(); }
-    }
-
-    /* ---------- SPLASH CONTROL ---------- */
-    const welcome = document.getElementById('welcome');
-    const welcomeSub = document.getElementById('welcomeSub');
-    let splashTimerDone = false, firstDataLoaded = false;
-    function maybeHideWelcome() {
-      if (splashTimerDone && firstDataLoaded) {
-        welcome.style.opacity = '0';
-        setTimeout(()=>welcome.style.display='none',800);
+  async function updateMap(data){
+    const ids=Object.keys(data);
+    const legend=document.getElementById('legend');
+    legend.innerHTML='<h4>🚌 Active Buses</h4>';
+    let any=false;const bounds=[];
+    for(const id of ids){
+      const rows=data[id];if(!rows||!rows.length)continue;
+      const latest=rows[0];const lat=+latest.lat,lng=+latest.lng;
+      if(!isFinite(lat)||!isFinite(lng))continue;any=true;
+      if(!buses[id]){
+        const color=randomColor(),icon=makeBusIcon(id,color);
+        const marker=L.marker([lat,lng],{icon}).addTo(map);
+        const trail=L.polyline([],{color,weight:5,opacity:.8}).addTo(map);
+        buses[id]={marker,trail,color};
       }
+      const b=buses[id];
+      const pts=rows.map(r=>[+r.lat,+r.lng]);
+      b.trail.setLatLngs(pts);
+      b.marker.setLatLng([lat,lng]);
+      const addr=await getStreetName(lat,lng);
+      b.marker.bindPopup(
+        `<b>Bus ${id}</b><br>
+         Dest: ${latest.destination||'-'}<br>
+         ETA: ${latest.eta||'-'}<br>
+         Driver: ${latest.driver||'-'}<br>
+         Current: ${addr||'(Locating...)'}<br>
+         Last: ${new Date(latest.timestamp).toLocaleString()}`
+      );
+      pts.forEach(p=>bounds.push(p));
+      const destLabel=(latest.destination||'-').toString().trim();
+      const leg=document.createElement('div');
+      leg.className='legend-item';
+      leg.innerHTML=`<div class="colorbox" style="background:${b.color}"></div> <div>${id} (${destLabel})</div>`;
+      legend.appendChild(leg);
     }
-    window.addEventListener('load', ()=>setTimeout(()=>{ splashTimerDone=true; maybeHideWelcome(); },3000));
-
-    /* ---------- FETCH & UPDATE ---------- */
-    async function updateMap(data){
-      const ids = Object.keys(data);
-      const legend = document.getElementById('legend');
-      legend.innerHTML = '<h4>🚌 Active Buses</h4>';
-      let any=false; const bounds=[];
-
-      for(const id of ids){
-        const rows=data[id]; if(!rows||!rows.length)continue;
-        const latest=rows[0]; const lat=+latest.lat, lng=+latest.lng;
-        if(!isFinite(lat)||!isFinite(lng))continue;
-        any=true;
-        if(!buses[id]){
-          const color=randomColor(), icon=makeBusIcon(id,color);
-          const marker=L.marker([lat,lng],{icon}).addTo(map);
-          const trail=L.polyline([],{color,weight:5,opacity:0.8}).addTo(map);
-          buses[id]={marker,trail,color};
-        }
-        const b=buses[id];
-        b.trail.setLatLngs(rows.map(r=>[+r.lat,+r.lng]));
-        b.marker.setLatLng([lat,lng]);
-        const addr=await getStreetName(lat,lng);
-
-        const gmapsUrl = `https://www.google.com/maps?q=${lat},${lng}`;
-        const navUrl   = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
-
-        b.marker.bindPopup(
-          `<b>Bus ${id}</b><br>
-           Dest: ${latest.destination || '-'}<br>
-           ETA: ${latest.eta || '-'}<br>
-           Driver: ${latest.driver || '-'}<br>
-           Current: ${addr || '(Locating...)'}<br>
-           Last: ${new Date(latest.timestamp).toLocaleString()}<br>
-           <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
-             <a href="${gmapsUrl}" target="_blank"
-                style="padding:6px 10px;border-radius:8px;background:#eef3ff;color:#0b57d0;
-                       text-decoration:none;font-weight:600;display:inline-block;">🌍 Open in Google Maps</a>
-             <a href="${navUrl}" target="_blank"
-                style="padding:6px 10px;border-radius:8px;background:#e6f4ea;color:#137333;
-                       text-decoration:none;font-weight:600;display:inline-block;">🧭 Get Directions</a>
-             <a href="#" onclick="copyCoords(${lat},${lng}); return false;"
-                style="padding:6px 10px;border-radius:8px;background:#fff3cd;color:#7a5200;border:1px solid #ffe08a;
-                       text-decoration:none;font-weight:600;display:inline-block;">📋 Copy Coordinates</a>
-           </div>`
-        );
-
-        bounds.push([lat,lng]);
-        const dest=(latest.destination||'-').trim();
-        const leg=document.createElement('div');
-        leg.className='legend-item';
-        leg.innerHTML=`<div class="colorbox" style="background:${b.color}"></div> <div>${id} (${dest})</div>`;
-        legend.appendChild(leg);
+    Object.keys(buses).forEach(id=>{
+      if(!ids.includes(id)){
+        map.removeLayer(buses[id].marker);
+        map.removeLayer(buses[id].trail);
+        delete buses[id];
       }
+    });
+    updateBusListFromData(data);
+    if(currentFocusId)bringToFrontBus(currentFocusId);
+    status(any?`Updated: ${new Date().toLocaleTimeString()}`:'No buses yet');
 
-      Object.keys(buses).forEach(id=>{ if(!ids.includes(id)){ map.removeLayer(buses[id].marker); map.removeLayer(buses[id].trail); delete buses[id]; }});
-      if(any&&bounds.length) map.fitBounds(bounds,{padding:[30,30]});
-      status(any?`Updated: ${new Date().toLocaleTimeString()}`:'No buses yet');
-      firstDataLoaded=true; welcomeSub.textContent='✅ Data loaded. Initializing map...'; maybeHideWelcome();
+    if(followEnabled){
+      if(followTarget.type==='bus'&&followTarget.id&&buses[followTarget.id])
+        centerTo(buses[followTarget.id].marker.getLatLng());
+      else if(followTarget.type==='myloc'&&myLocMarker)
+        centerTo(myLocMarker.getLatLng());
+      else if(followTarget.type==='home')
+        centerTo(HOME);
     }
+  }
 
-    async function refresh(){
-      try{
-        const res=await fetch(WEB_APP_URL+'?json=1',{cache:'no-store'});
-        const js=await res.json();
-        if(js&&js.ok) updateMap(js.buses);
-        else status('Failed to load data');
-      }catch(e){ status('Fetch failed'); }
-    }
-    refresh(); setInterval(refresh,REFRESH_SEC*1000);
+  async function refresh(){
+    try{
+      const res=await fetch(WEB_APP_URL+'?json=1',{cache:'no-store'});
+      const js=await res.json();
+      if(js&&js.ok)updateMap(js.buses);
+      else status('Failed to load data');
+    }catch(e){status('Fetch failed');console.warn('Fetch failed:',e);}
+  }
+  refresh();setInterval(refresh,REFRESH_SEC*1000);
 
-    /* ---------- CONTROLS ---------- */
-    const btnLegend=document.getElementById('btnLegend'), legendEl=document.getElementById('legend');
-    let legendVisible=false;
-    function toggleLegend(){ legendVisible=!legendVisible; legendEl.style.display=legendVisible?'block':'none'; btnLegend.textContent=legendVisible?'🙈':'👁️'; }
-    btnLegend.onclick=toggleLegend;
+  /* ==== CONTROLS ==== */
+  document.getElementById('btnHome').onclick=()=>{
+    followTarget={type:'home',id:null};centerTo(HOME);status('Centered to Home');};
+  document.getElementById('btnPrev').onclick=()=>{
+    if(!busList.length)return;
+    const idx=busList.indexOf(currentFocusId);
+    currentFocusId=busList[idx<=0?busList.length-1:idx-1];
+    localStorage.setItem(LAST_BUS_KEY,currentFocusId);
+    followTarget={type:'bus',id:currentFocusId};
+    const b=buses[currentFocusId];
+    if(b)centerTo(b.marker.getLatLng());
+    bringToFrontBus(currentFocusId);
+    status(`Focused: Bus ${currentFocusId}`);
+  };
+  document.getElementById('btnNext').onclick=()=>{
+    if(!busList.length)return;
+    const idx=busList.indexOf(currentFocusId);
+    currentFocusId=busList[(idx+1)%busList.length];
+    localStorage.setItem(LAST_BUS_KEY,currentFocusId);
+    followTarget={type:'bus',id:currentFocusId};
+    const b=buses[currentFocusId];
+    if(b)centerTo(b.marker.getLatLng());
+    bringToFrontBus(currentFocusId);
+    status(`Focused: Bus ${currentFocusId}`);
+  };
+  document.getElementById('btnMyLoc').onclick=()=>{
+    if(!navigator.geolocation)return status('Geolocation not supported');
+    navigator.geolocation.getCurrentPosition(pos=>{
+      const ll=L.latLng(pos.coords.latitude,pos.coords.longitude);
+      if(!myLocMarker){
+        myLocMarker=L.marker(ll,{icon:L.divIcon({
+          className:'myloc',html:'<div style="font-size:22px">📍</div>',
+          iconSize:[24,24],iconAnchor:[12,22]})}).addTo(map);
+      }else myLocMarker.setLatLng(ll);
+      followTarget={type:'myloc',id:null};
+      centerTo(ll);
+      status('My location updated');
+    },err=>status('GPS error: '+err.message),{enableHighAccuracy:true});
+  };
+  document.getElementById('btnRecenter').onclick=()=>{
+    if(currentFocusId&&buses[currentFocusId]){
+      const pos=buses[currentFocusId].marker.getLatLng();
+      centerTo(pos);
+      followTarget={type:'bus',id:currentFocusId};
+      setFollow(true);
+      status(`Recentered on Bus ${currentFocusId}`);
+    }else status('No bus in focus');
+  };
+  document.getElementById('btnMapType').onclick=switchMapType;
 
-    document.getElementById('btnHome').onclick=()=>{centerTo(HOME);status('Centered: Home');};
-    document.getElementById('btnMapType').onclick=switchMapType;
-    document.getElementById('btnMyLoc').onclick=()=>{
-      if(!navigator.geolocation)return status('No GPS');
-      navigator.geolocation.getCurrentPosition(pos=>{
-        const ll=L.latLng(pos.coords.latitude,pos.coords.longitude);
-        if(!myLocMarker) myLocMarker=L.marker(ll,{icon:L.divIcon({className:'myloc',html:'<div style="font-size:22px">📍</div>',iconSize:[24,24],iconAnchor:[12,22]})}).addTo(map);
-        else myLocMarker.setLatLng(ll);
-        centerTo(ll); status('My location updated');
-      });
-    };
-    document.getElementById('btnPrev').onclick=()=>status('◀️ Previous bus');
-    document.getElementById('btnNext').onclick=()=>status('▶️ Next bus');
+  const legendEl=document.getElementById('legend');
+  const btnLegend=document.getElementById('btnLegend');
+  let legendVisible=false;
+  function setLegendVisible(v){
+    legendVisible=v;
+    legendEl.style.display=v?'block':'none';
+    btnLegend.textContent=v?'🙈':'👁️';
+    btnLegend.title=v?'Hide Active Buses':'Show Active Buses';
+  }
+  btnLegend.onclick=()=>setLegendVisible(!legendVisible);
+  setLegendVisible(false);
   </script>
 </body>
 </html>
