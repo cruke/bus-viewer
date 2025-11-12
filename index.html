@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
   <style>
-    html, body { margin:0; height:100%; font-family:system-ui, sans-serif; }
+    html, body { margin:0; height:100%; font-family:system-ui, sans-serif; background:#fff; }
     #map { height:100%; width:100%; }
     body { padding-bottom: calc(env(safe-area-inset-bottom, 0) + 4px); }
     .leaflet-popup-content { font-size:.9rem; line-height:1.3; }
@@ -47,7 +47,7 @@
     .legend-item.active { background:#dbe9ff; box-shadow:0 0 0 2px rgba(0,120,255,.25) inset; }
     .colorbox { width:16px; height:10px; border-radius:3px; }
 
-    /* Status label (temporary messages) */
+    /* Status label */
     .status {
       position:absolute; top:10px; right:10px; z-index:700;
       background:rgba(0,0,0,.7); color:#fff; padding:6px 10px;
@@ -102,13 +102,13 @@
   <div class="controls">
     <button id="btnHome" title="Home">🏠</button>
     <button id="btnPrev" title="Previous bus">◀️</button>
-    <button id="btnRecenter" title="Recenter on bus">🔄</button>
+    <button id="btnRecenter" title="Recenter">🔄</button>
     <button id="btnNext" title="Next bus">▶️</button>
     <button id="btnMyLoc" title="My location">📍</button>
-    <button id="btnMapType" title="Switch map type">🗺️</button>
+    <button id="btnMapType" title="Switch map">🗺️</button>
     <button id="btnLegend" title="Hide Active Buses">🙈</button>
-    <button id="btnFollow" title="Toggle follow">🎯</button>
-    <button id="btnWake" title="Keep screen awake (Wake Lock)">💤</button>
+    <button id="btnFollow" title="Follow bus">🎯</button>
+    <button id="btnWake" title="Keep screen on">💤</button>
   </div>
 
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
@@ -121,10 +121,10 @@
     /* Config */
     const WEB_APP_URL="https://script.google.com/macros/s/AKfycby6mh0UYXsQyms8ZHWGl5fgDM2yUCBH7TfQ53zTS810KGLS8rLFFcijVTpGpoo2Ab5uAg/exec";
     const REFRESH_SEC=10;
+    const TRAIL_LIMIT_PER_DAY=200;
     const HOME=L.latLng(3.543784470063409,103.42902640748252);
-    const TRAIL_LIMIT_PER_DAY = 200;
 
-    /* Map & layers */
+    /* Map & layers (no attribution) */
     const map=L.map('map',{zoomControl:true,attributionControl:false}).setView([3.54,103.43],13);
     const layers={
       osm:L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'),
@@ -134,15 +134,15 @@
     map.createPane('labels');
     map.getPane('labels').style.zIndex=650;
     map.getPane('labels').style.pointerEvents='none';
-    const labelsOverlay=L.tileLayer('https://stamen-tiles.a.ssl.fastly.net/toner-labels/{z}/{x}/{y}.png',{pane:'labels',opacity:0.9});
+    const labels=L.tileLayer('https://stamen-tiles.a.ssl.fastly.net/toner-labels/{z}/{x}/{y}.png',{pane:'labels',opacity:.9});
     let baseOrder=['osm','esriImagery','esriStreets'],baseIdx=0;
     let baseLayer=layers[baseOrder[baseIdx]].addTo(map);
-    if(!map.hasLayer(labelsOverlay))labelsOverlay.addTo(map);
+    if(!map.hasLayer(labels))labels.addTo(map);
     function switchMapType(){
       map.removeLayer(baseLayer);
       baseIdx=(baseIdx+1)%baseOrder.length;
       baseLayer=layers[baseOrder[baseIdx]].addTo(map);
-      if(!map.hasLayer(labelsOverlay))labelsOverlay.addTo(map);
+      if(!map.hasLayer(labels))labels.addTo(map);
     }
 
     /* Status manager */
@@ -152,61 +152,93 @@
     function maybeStatus(msg){ if(Date.now()>statusHoldUntil){ statusEl.textContent=msg; } }
 
     /* State */
-    const buses={}, addrCache=new Map();
-    const legendEl=document.getElementById('legend');
+    const buses={}, legendEl=document.getElementById('legend');
     let busList=[], currentFocusId=null, myLocMarker=null;
     let followEnabled=true, firstLoadDone=false;
 
-    const randomColor=()=>`hsl(${Math.floor(Math.random()*360)},80%,50%)`;
+    /* Reverse geocode cache */
+    const addrCache = new Map();
+    async function getStreetName(lat,lng){
+      const key = lat.toFixed(5)+','+lng.toFixed(5);
+      if (addrCache.has(key)) return addrCache.get(key);
+      try{
+        const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&accept-language=en`, {
+          headers: { 'User-Agent': 'UMPSA-BusViewer/1.0 (contact: webmaster@umpsa.edu.my)' }
+        });
+        if (!res.ok) { addrCache.set(key, ''); return ''; }
+        const js = await res.json();
+        const name = js.display_name || '';
+        addrCache.set(key, name);
+        return name;
+      }catch{
+        addrCache.set(key,'');
+        return '';
+      }
+    }
+
+    /* Muted color palette (no neon/bright green) */
+    const mutedPalette = [
+      '#2E86AB', '#6C5B7B', '#E07A5F', '#3D405B', '#8D99AE',
+      '#2A9D8F', '#7F7CAF', '#E76F51', '#5C677D', '#9C6644',
+      '#5B8FB9', '#7D7461', '#B56576', '#6B705C', '#7A9E9F'
+    ];
+    let paletteIdx = 0;
+    const nextMutedColor = () => mutedPalette[(paletteIdx++) % mutedPalette.length];
+
+    /* Circular bus icon (white circle, muted border, no square) */
     function makeBusIcon(id,color){
       return L.divIcon({
         className:'bus-icon',
-        html:`<div style="text-align:center">
-                <div style="background:${color};color:white;font-size:12px;padding:2px 5px;border-radius:5px;margin-bottom:2px">${id}</div>
-                <div style="font-size:22px">🚌</div>
-              </div>`,
-        iconSize:[40,46], iconAnchor:[20,40]
+        html:`
+          <div style="
+            width:44px;height:44px;border-radius:50%;
+            background:#fff;border:3px solid ${color};
+            display:flex;flex-direction:column;align-items:center;justify-content:center;
+            box-shadow:0 2px 6px rgba(0,0,0,.3);">
+            <div style="font-size:12px;color:${color};font-weight:700;line-height:12px;">${id}</div>
+            <div style="font-size:20px;line-height:20px;">🚌</div>
+          </div>`,
+        iconSize:[44,44],iconAnchor:[22,22]
       });
     }
 
-    /* Pause follow on pan/zoom */
-    map.on('dragstart', ()=>{
-      if(followEnabled){
-        followEnabled=false; btnFollow.textContent='🚫'; btnFollow.title='Follow OFF';
-        setStatus('Follow OFF (map moved)', 3000);
-      }
-    });
-    map.on('zoomstart', ()=>{
-      if(followEnabled){
-        followEnabled=false; btnFollow.textContent='🚫'; btnFollow.title='Follow OFF';
-        setStatus('Follow OFF (zoom changed)', 3000);
-      }
-    });
+    /* Pause follow on user pan/zoom */
+    map.on('dragstart', ()=>{ if(followEnabled){ followEnabled=false; btnFollow.textContent='🚫'; btnFollow.title='Follow OFF'; setStatus('Follow OFF (map moved)', 3000); }});
+    map.on('zoomstart', ()=>{ if(followEnabled){ followEnabled=false; btnFollow.textContent='🚫'; btnFollow.title='Follow OFF'; setStatus('Follow OFF (zoom)', 3000); }});
 
-    function bringToFrontBus(fid){
-      Object.keys(buses).forEach(id=>{
-        const b=buses[id]; if(!b) return;
-        if(id===fid){ b.marker.setZIndexOffset(1000); b.trail.bringToFront(); }
-        else { b.marker.setZIndexOffset(0); b.trail.bringToBack(); }
-      });
-    }
     function centerTo(ll){ map.setView(ll, map.getZoom(), { animate:true }); }
 
-    async function getStreetName(lat,lng){
-      const k=lat.toFixed(5)+','+lng.toFixed(5);
-      if(addrCache.has(k)) return addrCache.get(k);
-      try{
-        const res=await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&accept-language=en`);
-        const js=await res.json();
-        const name=js.display_name||'';
-        addrCache.set(k,name);
-        return name;
-      }catch{ return ''; }
+    /** Keep only today's points and cap to TRAIL_LIMIT_PER_DAY (most recent first). */
+    function todaysLimitedRows(rows){
+      if(!rows||!rows.length) return [];
+      const latestDate = new Date(rows[0].timestamp).toDateString();
+      const todayRows = rows.filter(r => new Date(r.timestamp).toDateString() === latestDate);
+      return todayRows.slice(0, TRAIL_LIMIT_PER_DAY).reverse(); // chronological for polyline
+    }
+
+    /** Build popup HTML conditionally (only show available fields). */
+    function buildPopup(id,row,addrText){
+      const lines = [];
+      if (row.destination) lines.push(`Destination: ${row.destination}`);
+      if (row.driver)      lines.push(`Driver: ${row.driver}`);
+      if (row.plate)       lines.push(`Plate: ${row.plate}`);
+      if (row.speed_mps && row.speed_mps > 0) lines.push(`Speed: ${(row.speed_mps*3.6).toFixed(1)} km/h`);
+      if (addrText)        lines.push(`Current location: ${addrText}`);
+      if (row.timestamp)   lines.push(`Last update: ${new Date(row.timestamp).toLocaleString()}`);
+
+      const link=`https://www.google.com/maps?q=${row.lat},${row.lng}`;
+      const dir =`https://www.google.com/maps/dir/?api=1&destination=${row.lat},${row.lng}`;
+
+      return `<b>Bus ${id}</b><br>${lines.join('<br>')}
+        <div class="popup-btn-container">
+          <a href="${link}" target="_blank" class="popup-btn">📍 Open in Maps</a>
+          <a href="${dir}" target="_blank" class="popup-btn">🚗 Get Directions</a>
+        </div>`;
     }
 
     function rebuildBusList(data){
       busList = Object.keys(data).sort();
-      if(!currentFocusId || !busList.includes(currentFocusId)){
+      if (!currentFocusId || !busList.includes(currentFocusId)){
         currentFocusId = busList[0] || null;
       }
     }
@@ -220,16 +252,27 @@
     function focusBus(id, { openPopup=false } = {}){
       if(!id || !buses[id]) return;
       currentFocusId = id;
-      bringToFrontBus(id);
-      if(followEnabled) centerTo(buses[id].marker.getLatLng());
-      if(openPopup) buses[id].marker.openPopup();
+      Object.keys(buses).forEach(k=>{
+        const b=buses[k];
+        if (k===id){ b.marker.setZIndexOffset(1000); b.trail.bringToFront(); }
+        else { b.marker.setZIndexOffset(0); b.trail.bringToBack(); }
+      });
+      if (followEnabled) centerTo(buses[id].marker.getLatLng());
+      if (openPopup) buses[id].marker.openPopup();
       highlightLegend(id);
-      setStatus(`Focused: Bus ${id}`, 3000);
+      setStatus(`Focused: Bus ${id}`, 2000);
     }
 
     function ensureMarkerClick(id){
       const b=buses[id]; if(!b || b._clickBound) return;
-      b.marker.on('click', ()=> focusBus(id, { openPopup:true }) );
+      b.marker.on('click', async ()=>{
+        // refresh popup address on click
+        const lat=b.marker.getLatLng().lat, lng=b.marker.getLatLng().lng;
+        const addr = await getStreetName(lat,lng);
+        const latest = buses[id].latestRow || {};
+        b.marker.bindPopup( buildPopup(id, latest, addr) ).openPopup();
+        focusBus(id, { openPopup:false }); // recenters if followEnabled
+      });
       b._clickBound = true;
     }
 
@@ -237,90 +280,42 @@
       const d=document.createElement('div');
       d.className='legend-item';
       d.dataset.busid = id;
-      const destText = (dest && String(dest).trim()) ? ` (${String(dest).trim()})` : '';
-      d.innerHTML=`<div class="colorbox" style="background:${color}"></div><div>${id}${destText}</div>`;
+      d.innerHTML=`<div class="colorbox" style="background:${color}"></div><div>${id}${dest?` (${dest})`:''}</div>`;
       d.onclick=()=>{ if(buses[id]){ followEnabled=true; btnFollow.textContent='🎯'; btnFollow.title='Follow ON'; focusBus(id, { openPopup:false }); } };
       return d;
     }
 
-    function kmhFromMps(mps){
-      const v = Number(mps);
-      return isFinite(v) ? (v*3.6) : NaN;
-    }
-
-    /* CHANGED HERE: “Last” → “Last update” */
-    function buildPopupHTML(id, latest, addr){
-      const rows = [];
-      const destination = (latest.destination ?? '').toString().trim();
-      const driver      = (latest.driver ?? '').toString().trim();
-      const plate       = (latest.plate ?? '').toString().trim();
-      const speedMps    = latest.speed_mps;
-      const speedKmh    = kmhFromMps(speedMps);
-      const whenRaw     = latest.timestamp ? new Date(latest.timestamp) : null;
-      const whenStr     = whenRaw ? whenRaw.toLocaleString() : '';
-      const addrStr     = (addr ?? '').toString().trim();
-
-      if (destination) rows.push(`Destination: ${destination}`);
-      if (driver)      rows.push(`Driver: ${driver}`);
-      if (plate)       rows.push(`Plate: ${plate}`);
-      if (isFinite(speedKmh) && speedKmh > 0) rows.push(`Speed: ${speedKmh.toFixed(1)} km/h`);
-      if (addrStr)     rows.push(`Current location: ${addrStr}`);
-      if (whenStr)     rows.push(`Last update: ${whenStr}`);  /* ← label changed */
-
-      const lat = +latest.lat, lng = +latest.lng;
-      const link=`https://www.google.com/maps?q=${lat},${lng}`;
-      const dir =`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
-
-      const details = rows.join('<br>');
-      return `
-        <b>Bus ${id}</b><br>
-        ${details ? details + '<br>' : ''}
-        <div class="popup-btn-container">
-          <a href="${link}" target="_blank" class="popup-btn">📍 Open in Maps</a>
-          <a href="${dir}" target="_blank" class="popup-btn">🚗 Get Directions</a>
-        </div>
-      `;
-    }
-
-    /* Trail limiter: up to 200 points for the latest day only */
-    function sameDay(a, b) {
-      return a.getFullYear()===b.getFullYear() &&
-             a.getMonth()===b.getMonth() &&
-             a.getDate()===b.getDate();
-    }
-    function filterRowsForTrail(rows) {
-      if (!rows || !rows.length) return [];
-      const latestDate = new Date(rows[0].timestamp);
-      const sameDayRows = rows.filter(r => sameDay(new Date(r.timestamp), latestDate));
-      const limitedNewestFirst = sameDayRows.slice(0, TRAIL_LIMIT_PER_DAY);
-      return limitedNewestFirst.slice().reverse();
-    }
-
     async function updateMap(data){
-      const ids=Object.keys(data);
+      const ids = Object.keys(data);
       legendEl.innerHTML = '<h4>🚌 Active Buses</h4>';
       let any=false;
 
-      for(const id of ids){
-        const rows=data[id]; if(!rows || !rows.length) continue;
-        const latest=rows[0];
-        const lat=+latest.lat, lng=+latest.lng; if(!isFinite(lat)||!isFinite(lng)) continue;
-        any=true;
+      for (const id of ids){
+        const rows = data[id]; if(!rows || !rows.length) continue;
+        const latest = rows[0];
+        const lat = +latest.lat, lng = +latest.lng;
+        if (!isFinite(lat) || !isFinite(lng)) continue;
+        any = true;
 
-        if(!buses[id]){
-          const c=randomColor(), icon=makeBusIcon(id,c);
-          const marker=L.marker([lat,lng],{icon}).addTo(map);
-          const trail=L.polyline([],{color:c,weight:5,opacity:.8}).addTo(map);
-          buses[id]={marker,trail,color:c};
+        // create if new
+        if (!buses[id]){
+          const color = nextMutedColor();
+          const icon  = makeBusIcon(id, color);
+          const marker= L.marker([lat,lng], { icon }).addTo(map);
+          const trail = L.polyline([], { color, weight:5, opacity:.85 }).addTo(map);
+          buses[id] = { marker, trail, color, latestRow: latest };
+        } else {
+          buses[id].latestRow = latest;
         }
 
-        const b=buses[id];
-        const trailRows = filterRowsForTrail(rows);
-        b.trail.setLatLngs(trailRows.map(r=>[+r.lat,+r.lng]));
+        // trail = only today, max 200 pts
+        const b = buses[id];
+        const dayPts = todaysLimitedRows(rows);
+        b.trail.setLatLngs(dayPts.map(p=>[+p.lat,+p.lng]));
         b.marker.setLatLng([lat,lng]);
 
-        const addr=await getStreetName(lat,lng);
-        b.marker.bindPopup( buildPopupHTML(id, latest, addr) );
+        // Initial popup bind with empty address (fast), will refresh on click
+        b.marker.bindPopup( buildPopup(id, latest, '') );
 
         ensureMarkerClick(id);
         legendEl.appendChild( buildLegendEntry(id, latest.destination, b.color) );
@@ -337,15 +332,17 @@
 
       rebuildBusList(data);
 
+      // initial focus (center to first bus) until user interrupts
       if(!firstLoadDone && currentFocusId){
         followEnabled = true; btnFollow.textContent='🎯'; btnFollow.title='Follow ON';
         focusBus(currentFocusId, { openPopup:false });
         firstLoadDone = true;
       }
-      if(followEnabled && currentFocusId && buses[currentFocusId]){
+      // keep centered if following
+      if (followEnabled && currentFocusId && buses[currentFocusId]){
         centerTo(buses[currentFocusId].marker.getLatLng());
       }
-      if(currentFocusId){ highlightLegend(currentFocusId); }
+      if (currentFocusId){ highlightLegend(currentFocusId); }
 
       maybeStatus(any ? `Updated: ${new Date().toLocaleTimeString()}` : 'No buses yet');
     }
@@ -354,7 +351,7 @@
       try{
         const res = await fetch(WEB_APP_URL+'?json=1', { cache:'no-store' });
         const js = await res.json();
-        if(js && js.ok) updateMap(js.buses);
+        if (js && js.ok) updateMap(js.buses);
         else maybeStatus('Failed to load data');
       }catch(e){
         maybeStatus('Fetch failed');
@@ -401,7 +398,7 @@
       if(currentFocusId && buses[currentFocusId]){
         followEnabled = true; btnFollow.textContent='🎯'; btnFollow.title='Follow ON';
         centerTo(buses[currentFocusId].marker.getLatLng());
-        setStatus('Recentered (follow ON)', 3000);
+        setStatus('Recentered (follow ON)', 2500);
         highlightLegend(currentFocusId);
       } else {
         setStatus('No focused bus', 3000);
@@ -437,14 +434,14 @@
       followEnabled = !followEnabled;
       btnFollow.textContent = followEnabled ? '🎯' : '🚫';
       btnFollow.title = followEnabled ? 'Follow ON' : 'Follow OFF';
-      setStatus(followEnabled ? 'Follow ON' : 'Follow OFF', 2500);
+      setStatus(followEnabled ? 'Follow ON' : 'Follow OFF', 2000);
       if(followEnabled && currentFocusId && buses[currentFocusId]){
         centerTo(buses[currentFocusId].marker.getLatLng());
         highlightLegend(currentFocusId);
       }
     };
 
-    /* Wake Lock */
+    /* Wake Lock (Screen) */
     let wakeLock = null;
     async function requestWakeLock(){
       try{
@@ -452,34 +449,30 @@
           wakeLock = await navigator.wakeLock.request('screen');
           btnWake.textContent = '🔆';
           btnWake.title = 'Screen awake (tap to release)';
-          setStatus('Wake Lock ON', 2000);
+          setStatus('Wake Lock ON', 1500);
           wakeLock.addEventListener('release', () => {
             wakeLock = null;
             btnWake.textContent = '💤';
             btnWake.title = 'Keep screen awake (Wake Lock)';
-            setStatus('Wake Lock released', 2000);
+            setStatus('Wake Lock released', 1500);
           });
         }
       }catch(err){
-        setStatus('Wake Lock failed: ' + (err && err.message ? err.message : err), 3000);
+        setStatus('Wake Lock failed: ' + (err && err.message ? err.message : err), 2500);
         btnWake.textContent = '💤';
         btnWake.title = 'Keep screen awake (Wake Lock)';
       }
     }
     async function releaseWakeLock(){
-      try{
-        if (wakeLock){
-          await wakeLock.release();
-          wakeLock = null;
-        }
-      }catch{}
+      try{ if (wakeLock){ await wakeLock.release(); } }catch{}
+      wakeLock = null;
       btnWake.textContent = '💤';
       btnWake.title = 'Keep screen awake (Wake Lock)';
-      setStatus('Wake Lock OFF', 1500);
+      setStatus('Wake Lock OFF', 1200);
     }
     btnWake.onclick = async ()=>{
       if (!('wakeLock' in navigator)){
-        setStatus('Wake Lock not supported on this browser', 3000);
+        setStatus('Wake Lock not supported on this browser', 2500);
         btnWake.disabled = true;
         return;
       }
@@ -487,7 +480,8 @@
     };
     document.addEventListener('visibilitychange', async ()=>{
       if (document.visibilityState === 'visible' && wakeLock){
-        wakeLock = null; // force reacquire
+        // force reacquire
+        wakeLock = null;
         await requestWakeLock();
       }
     });
