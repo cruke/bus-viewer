@@ -203,8 +203,22 @@
     }
 
     /* Pause follow on user pan/zoom */
-    map.on('dragstart', ()=>{ if(followEnabled){ followEnabled=false; btnFollow.textContent='🚫'; btnFollow.title='Follow OFF'; setStatus('Follow OFF (map moved)', 3000); }});
-    map.on('zoomstart', ()=>{ if(followEnabled){ followEnabled=false; btnFollow.textContent='🚫'; btnFollow.title='Follow OFF'; setStatus('Follow OFF (zoom)', 3000); }});
+    map.on('dragstart', ()=>{ 
+      if(followEnabled){ 
+        followEnabled=false; 
+        btnFollow.textContent='🚫'; 
+        btnFollow.title='Follow OFF'; 
+        setStatus('Follow OFF (map moved)', 3000); 
+      }
+    });
+    map.on('zoomstart', ()=>{ 
+      if(followEnabled){ 
+        followEnabled=false; 
+        btnFollow.textContent='🚫'; 
+        btnFollow.title='Follow OFF'; 
+        setStatus('Follow OFF (zoom)', 3000); 
+      }
+    });
 
     function centerTo(ll){ map.setView(ll, map.getZoom(), { animate:true }); }
 
@@ -249,14 +263,28 @@
       if(row){ row.classList.add('active'); row.scrollIntoView({ block:'nearest', inline:'nearest', behavior:'smooth' }); }
     }
 
+    /** Show trail only for currentFocusId */
+    function updateTrailVisibility(){
+      Object.keys(buses).forEach(id=>{
+        const b = buses[id];
+        if (!b || !b.trail) return;
+        if (id === currentFocusId){
+          if (!map.hasLayer(b.trail)) b.trail.addTo(map);
+        } else {
+          if (map.hasLayer(b.trail)) map.removeLayer(b.trail);
+        }
+      });
+    }
+
     function focusBus(id, { openPopup=false } = {}){
       if(!id || !buses[id]) return;
       currentFocusId = id;
       Object.keys(buses).forEach(k=>{
         const b=buses[k];
-        if (k===id){ b.marker.setZIndexOffset(1000); b.trail.bringToFront(); }
-        else { b.marker.setZIndexOffset(0); b.trail.bringToBack(); }
+        if (k===id){ b.marker.setZIndexOffset(1000); }
+        else { b.marker.setZIndexOffset(0); }
       });
+      updateTrailVisibility(); // ensure only this bus shows trail
       if (followEnabled) centerTo(buses[id].marker.getLatLng());
       if (openPopup) buses[id].marker.openPopup();
       highlightLegend(id);
@@ -281,7 +309,14 @@
       d.className='legend-item';
       d.dataset.busid = id;
       d.innerHTML=`<div class="colorbox" style="background:${color}"></div><div>${id}${dest?` (${dest})`:''}</div>`;
-      d.onclick=()=>{ if(buses[id]){ followEnabled=true; btnFollow.textContent='🎯'; btnFollow.title='Follow ON'; focusBus(id, { openPopup:false }); } };
+      d.onclick=()=>{ 
+        if(buses[id]){
+          followEnabled=true; 
+          btnFollow.textContent='🎯'; 
+          btnFollow.title='Follow ON'; 
+          focusBus(id, { openPopup:false }); 
+        } 
+      };
       return d;
     }
 
@@ -302,7 +337,7 @@
           const color = nextMutedColor();
           const icon  = makeBusIcon(id, color);
           const marker= L.marker([lat,lng], { icon }).addTo(map);
-          const trail = L.polyline([], { color, weight:5, opacity:.85 }).addTo(map);
+          const trail = L.polyline([], { color, weight:5, opacity:.85 }); // NOTE: not added to map here
           buses[id] = { marker, trail, color, latestRow: latest };
         } else {
           buses[id].latestRow = latest;
@@ -325,7 +360,7 @@
       Object.keys(buses).forEach(id=>{
         if(!ids.includes(id)){
           map.removeLayer(buses[id].marker);
-          map.removeLayer(buses[id].trail);
+          if (map.hasLayer(buses[id].trail)) map.removeLayer(buses[id].trail);
           delete buses[id];
         }
       });
@@ -343,6 +378,9 @@
         centerTo(buses[currentFocusId].marker.getLatLng());
       }
       if (currentFocusId){ highlightLegend(currentFocusId); }
+
+      // ensure trails visibility matches focus after updates
+      updateTrailVisibility();
 
       maybeStatus(any ? `Updated: ${new Date().toLocaleTimeString()}` : 'No buses yet');
     }
