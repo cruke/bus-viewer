@@ -304,11 +304,25 @@
       b._clickBound = true;
     }
 
-    function buildLegendEntry(id,dest,color){
+    /** Legend entry: dark green for buses updated today, black otherwise */
+    function buildLegendEntry(id,row,color){
       const d=document.createElement('div');
       d.className='legend-item';
       d.dataset.busid = id;
-      d.innerHTML=`<div class="colorbox" style="background:${color}"></div><div>${id}${dest?` (${dest})`:''}</div>`;
+
+      let isToday = false;
+      if (row.timestamp) {
+        const rowDay = new Date(row.timestamp).toDateString();
+        const today  = new Date().toDateString();
+        isToday = (rowDay === today);
+      }
+      const textColor = isToday ? '#006400' : '#000000'; // dark green vs black
+      const dest = row.destination || '';
+
+      d.innerHTML=`
+        <div class="colorbox" style="background:${color}"></div>
+        <div style="color:${textColor}">${id}${dest?` (${dest})`:''}</div>
+      `;
       d.onclick=()=>{ 
         if(buses[id]){
           followEnabled=true; 
@@ -353,7 +367,7 @@
         b.marker.bindPopup( buildPopup(id, latest, '') );
 
         ensureMarkerClick(id);
-        legendEl.appendChild( buildLegendEntry(id, latest.destination, b.color) );
+        legendEl.appendChild( buildLegendEntry(id, latest, b.color) );
       }
 
       // remove stale
