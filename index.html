@@ -7,42 +7,17 @@
         content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
   <style>
-    html, body {
-      margin:0;
-      height:100%;
-      font-family:system-ui, sans-serif;
-      background:#fff;
-      touch-action:manipulation;
-    }
+    html, body { margin:0; height:100%; font-family:system-ui, sans-serif; background:#fff; touch-action:manipulation; }
     #map { height:100%; width:100%; }
-    body {
-      padding-bottom: calc(env(safe-area-inset-bottom, 0) + 4px);
-    }
+    body { padding-bottom: calc(env(safe-area-inset-bottom, 0) + 4px); }
     .leaflet-popup-content { font-size:.9rem; line-height:1.3; }
     .leaflet-div-icon { background:transparent!important; border:none!important; }
 
-    /* Move zoom control to bottom-right, above buttons */
-    .leaflet-control-zoom {
-      position:absolute;
-      bottom:56px;
-      right:10px;
-      top:auto;
-      left:auto;
-    }
+    .leaflet-control-zoom { position:absolute; bottom:56px; right:10px; top:auto; left:auto; }
 
-    /* Title overlay – WHITE text + thin black outline + soft gold glow */
-    .title-overlay {
-      position:absolute;
-      top:6px;
-      left:50%;
-      transform:translateX(-50%);
-      z-index:750;
-
-      font-size:1.32rem;
-      font-weight:800;
-
-      color:#ffffff;
-
+    .title-overlay{
+      position:absolute; top:6px; left:50%; transform:translateX(-50%); z-index:750;
+      font-size:1.32rem; font-weight:800; color:#ffffff;
       text-shadow:
         -1px 0   0 rgba(0,0,0,0.95),
          1px 0   0 rgba(0,0,0,0.95),
@@ -51,333 +26,132 @@
         0 0 4px  rgba(255,215,0,0.40),
         0 0 8px  rgba(255,215,0,0.30),
         0 0 12px rgba(255,215,0,0.20);
-
       animation: goldBreath 3s ease-in-out infinite;
-      pointer-events:none;
-      white-space:nowrap;
+      pointer-events:none; white-space:nowrap;
     }
-
     @keyframes goldBreath {
-      0% {
-        text-shadow:
-          -1px 0   0 rgba(0,0,0,0.95),
-           1px 0   0 rgba(0,0,0,0.95),
-           0  -1px 0 rgba(0,0,0,0.95),
-           0   1px 0 rgba(0,0,0,0.95),
-          0 0 4px  rgba(255,215,0,0.40),
-          0 0 8px  rgba(255,215,0,0.30),
-          0 0 12px rgba(255,215,0,0.20);
-      }
-      50% {
-        text-shadow:
-          -1px 0   0 rgba(0,0,0,0.95),
-           1px 0   0 rgba(0,0,0,0.95),
-           0  -1px 0 rgba(0,0,0,0.95),
-           0   1px 0 rgba(0,0,0,0.95),
-          0 0 6px  rgba(255,223,80,0.55),
-          0 0 12px rgba(255,223,80,0.45),
-          0 0 18px rgba(255,223,80,0.35);
-      }
-      100% {
-        text-shadow:
-          -1px 0   0 rgba(0,0,0,0.95),
-           1px 0   0 rgba(0,0,0,0.95),
-           0  -1px 0 rgba(0,0,0,0.95),
-           0   1px 0 rgba(0,0,0,0.95),
-          0 0 4px  rgba(255,215,0,0.40),
-          0 0 8px  rgba(255,215,0,0.30),
-          0 0 12px rgba(255,215,0,0.20);
-      }
+      0% { text-shadow:
+        -1px 0 0 rgba(0,0,0,0.95), 1px 0 0 rgba(0,0,0,0.95),
+         0 -1px 0 rgba(0,0,0,0.95), 0 1px 0 rgba(0,0,0,0.95),
+        0 0 4px rgba(255,215,0,0.40), 0 0 8px rgba(255,215,0,0.30), 0 0 12px rgba(255,215,0,0.20); }
+      50% { text-shadow:
+        -1px 0 0 rgba(0,0,0,0.95), 1px 0 0 rgba(0,0,0,0.95),
+         0 -1px 0 rgba(0,0,0,0.95), 0 1px 0 rgba(0,0,0,0.95),
+        0 0 6px rgba(255,223,80,0.55), 0 0 12px rgba(255,223,80,0.45), 0 0 18px rgba(255,223,80,0.35); }
+      100% { text-shadow:
+        -1px 0 0 rgba(0,0,0,0.95), 1px 0 0 rgba(0,0,0,0.95),
+         0 -1px 0 rgba(0,0,0,0.95), 0 1px 0 rgba(0,0,0,0.95),
+        0 0 4px rgba(255,215,0,0.40), 0 0 8px rgba(255,215,0,0.30), 0 0 12px rgba(255,215,0,0.20); }
     }
 
-    /* Green status label (between title & logo) */
-    .status {
-      position:absolute;
-      top:110px;
-      left:50%;
-      transform:translateX(-50%);
-      z-index:755;
-      padding:4px 8px;
-      background:#004d00;
-      color:#fff;
-      font-size:.78rem;
-      border-radius:6px;
-      white-space:nowrap;
-      box-shadow:0 2px 4px rgba(0,0,0,.35);
+    .status{
+      position:absolute; top:110px; left:50%; transform:translateX(-50%); z-index:755;
+      padding:4px 8px; background:#004d00; color:#fff; font-size:.78rem; border-radius:6px;
+      white-space:nowrap; box-shadow:0 2px 4px rgba(0,0,0,.35);
     }
 
-    /* Top bar (logo + collapsible filters) */
-    .topbar {
-      position:absolute;
-      top:44px;
-      left:50%;
-      transform:translateX(-50%);
-      z-index:760;
-      display:flex;
-      align-items:center;
-      gap:8px;
-
-      background:transparent;
-      padding:0;
-      border-radius:999px;
-      box-shadow:none;
-      max-width:calc(100vw - 20px);
-
-      transition:all .25s ease;
+    .topbar{
+      position:absolute; top:44px; left:50%; transform:translateX(-50%); z-index:760;
+      display:flex; align-items:center; gap:8px;
+      background:transparent; padding:0; border-radius:999px; box-shadow:none;
+      max-width:calc(100vw - 20px); transition:all .25s ease;
     }
+    .topbar.open{ background:rgba(255,255,255,0.94); padding:4px 8px; box-shadow:0 2px 6px rgba(0,0,0,.25); }
 
-    .topbar.open {
-      background:rgba(255,255,255,0.94);
-      padding:4px 8px;
-      box-shadow:0 2px 6px rgba(0,0,0,.25);
+    .topbar-inner{
+      display:flex; align-items:center; gap:8px;
+      overflow:hidden; max-width:0; opacity:0; transform:scaleX(0);
+      transform-origin:right center; transition:.25s ease; white-space:nowrap;
     }
+    .topbar.open .topbar-inner{ max-width:520px; opacity:1; transform:scaleX(1); }
 
-    .topbar-inner {
-      display:flex;
-      align-items:center;
-      gap:8px;
-      overflow:hidden;
-      max-width:0;
-      opacity:0;
-      transform:scaleX(0);
-      transform-origin:right center;
-      transition:.25s ease;
-      white-space:nowrap;
-    }
+    .route-filter{ display:flex; align-items:center; gap:4px; font-size:.82rem; }
+    .route-filter select{ border-radius:6px; padding:3px 6px; font-size:.82rem; border:1px solid #ccc; background:#fff; }
 
-    .topbar.open .topbar-inner {
-      max-width:500px;
-      opacity:1;
-      transform:scaleX(1);
-    }
+    .today-check{ display:flex; align-items:center; gap:3px; font-size:.8rem; margin-left:4px; }
 
-    .route-filter {
-      display:flex;
-      align-items:center;
-      gap:4px;
-      font-size:.82rem;
-    }
-    .route-filter select {
-      border-radius:6px;
-      padding:3px 6px;
-      font-size:.82rem;
-      border:1px solid #ccc;
-      background:#fff;
-    }
-
-    .today-check {
-      display:flex;
-      align-items:center;
-      gap:3px;
-      font-size:.8rem;
-      margin-left:4px;
-    }
-
-    .logo-btn {
-      border:none;
-      background:transparent;
-      padding:0;
-      cursor:pointer;
-      border-radius:50%;
-      flex-shrink:0;
-    }
-
-    /* Breathing + glow for logo (idle) */
-    .logo-btn img {
-      width:40px;
-      height:40px;
-      border-radius:50%;
-      border:3px solid #ffffff;
-      background:#fff;
-      object-fit:contain;
+    .logo-btn{ border:none; background:transparent; padding:0; cursor:pointer; border-radius:50%; flex-shrink:0; }
+    .logo-btn img{
+      width:40px; height:40px; border-radius:50%;
+      border:3px solid #ffffff; background:#fff; object-fit:contain;
       filter:drop-shadow(0 2px 5px rgba(0,0,0,.45));
       animation: logoBreath 2.4s ease-in-out infinite;
     }
+    @keyframes logoBreath { 0%{transform:scale(1) rotate(0deg); box-shadow:0 0 6px rgba(255,255,255,0.9);}
+      50%{transform:scale(1.09) rotate(3deg); box-shadow:0 0 15px rgba(255,255,255,0.7);}
+      100%{transform:scale(1) rotate(0deg); box-shadow:0 0 6px rgba(255,255,255,0.9);} }
+    .topbar.open .logo-btn img{ animation: logoSpin 1.2s linear infinite !important; }
+    @keyframes logoSpin { from{transform:rotate(0deg) scale(1);} to{transform:rotate(360deg) scale(1);} }
 
-    @keyframes logoBreath {
-      0% {
-        transform:scale(1) rotate(0deg);
-        box-shadow:0 0 6px rgba(255,255,255,0.9);
-      }
-      50% {
-        transform:scale(1.09) rotate(3deg);
-        box-shadow:0 0 15px rgba(255,255,255,0.7);
-      }
-      100% {
-        transform:scale(1) rotate(0deg);
-        box-shadow:0 0 6px rgba(255,255,255,0.9);
-      }
+    .logo-btn.wobble{ animation: logoWobble .45s ease-out; }
+    @keyframes logoWobble{
+      0%{transform:scale(1) rotate(0deg);} 20%{transform:scale(.95) rotate(-6deg);}
+      40%{transform:scale(1.05) rotate(4deg);} 60%{transform:scale(.98) rotate(-3deg);}
+      80%{transform:scale(1.02) rotate(2deg);} 100%{transform:scale(1) rotate(0deg);}
     }
 
-    /* Spin animation when filters open */
-    .topbar.open .logo-btn img {
-      animation: logoSpin 1.2s linear infinite !important;
+    .bottom-left-panel{
+      position:absolute; left:10px; bottom:64px; z-index:700;
+      display:flex; flex-direction:column; gap:4px; max-width:calc(100vw - 20px);
     }
 
-    @keyframes logoSpin {
-      from { transform:rotate(0deg) scale(1); }
-      to   { transform:rotate(360deg) scale(1); }
-    }
-
-    /* Wobble when tapped */
-    .logo-btn.wobble {
-      animation: logoWobble .45s ease-out;
-    }
-
-    @keyframes logoWobble {
-      0%   { transform:scale(1) rotate(0deg); }
-      20%  { transform:scale(.95) rotate(-6deg); }
-      40%  { transform:scale(1.05) rotate(4deg); }
-      60%  { transform:scale(.98) rotate(-3deg); }
-      80%  { transform:scale(1.02) rotate(2deg); }
-      100% { transform:scale(1) rotate(0deg); }
-    }
-
-    /* Bottom-left legend */
-    .bottom-left-panel {
-      position:absolute;
-      left:10px;
-      bottom:64px;
-      z-index:700;
-      display:flex;
-      flex-direction:column;
-      gap:4px;
-      max-width:calc(100vw - 20px);
-    }
-
-    .legend {
-      background:rgba(255,255,255,.95);
-      padding:6px 10px;
-      border-radius:8px;
-      font-size:.9rem;
-      box-shadow:0 2px 6px rgba(0,0,0,.25);
-      max-height:60vh;
-      overflow-y:auto;
+    .legend{
+      background:rgba(255,255,255,.95); padding:6px 10px; border-radius:8px; font-size:.9rem;
+      box-shadow:0 2px 6px rgba(0,0,0,.25); max-height:60vh; overflow-y:auto;
       transition:transform .25s ease, opacity .22s ease;
     }
-    .legend h4 { margin:0 0 4px; font-size:.95rem; }
+    .legend h4{ margin:0 0 4px; font-size:.95rem; }
 
-    .legend-caption {
-      font-size:.75rem;
-      color:#444;
-      margin-bottom:2px;
-      display:flex;
-      align-items:center;
-      gap:4px;
-      flex-wrap:wrap;
+    .legend-caption{
+      font-size:.75rem; color:#444; margin-bottom:2px;
+      display:flex; align-items:center; gap:4px; flex-wrap:wrap;
     }
-    .legend-dot {
-      width:10px;
-      height:10px;
-      border-radius:50%;
-      display:inline-block;
-      flex-shrink:0;
-    }
-    .legend-dot-today { background:#006400; }
-    .legend-dot-old { background:#000; }
-    .legend-sep {
-      margin:0 4px;
-      opacity:.7;
-    }
+    .legend-dot{ width:10px; height:10px; border-radius:50%; display:inline-block; flex-shrink:0; }
+    .legend-dot-today{ background:#006400; }
+    .legend-dot-old{ background:#000; }
+    .legend-sep{ margin:0 4px; opacity:.7; }
+    .legend-hide-note{ font-size:.75rem; color:#444; font-style:italic; margin-bottom:4px; }
 
-    .legend-hide-note {
-      font-size:.75rem;
-      color:#444;
-      font-style:italic;
-      margin-bottom:4px;
+    .legend-item{
+      display:flex; align-items:center; gap:4px; margin:1px 0; padding:3px 6px;
+      border-radius:8px; cursor:pointer; transition:.15s ease;
     }
+    .legend-item:hover{ background:#e6f0ff; }
+    .legend-item.active{ background:#dbe9ff; box-shadow:0 0 0 2px rgba(0,120,255,.25) inset; }
+    .colorbox{ width:16px; height:10px; border-radius:3px; }
 
-    .legend-item {
-      display:flex;
-      align-items:center;
-      gap:4px;
-      margin:1px 0;
-      padding:3px 6px;
-      border-radius:8px;
-      cursor:pointer;
-      transition:.15s ease;
-    }
-    .legend-item:hover {
-      background:#e6f0ff;
-    }
-    .legend-item.active {
-      background:#dbe9ff;
-      box-shadow:0 0 0 2px rgba(0,120,255,.25) inset;
-    }
-    .colorbox {
-      width:16px;
-      height:10px;
-      border-radius:3px;
-    }
+    .legend.collapsed{ transform:scaleY(0); opacity:0; pointer-events:none; transform-origin:top left; }
 
-    .legend.collapsed {
-      transform:scaleY(0);
-      opacity:0;
-      pointer-events:none;
-      transform-origin:top left;
+    .controls{
+      position:absolute; bottom:8px; left:50%; transform:translateX(-50%);
+      display:grid; grid-template-columns:repeat(10,36px); gap:6px; z-index:800;
     }
-
-    /* ===========================
-       BOTTOM BUTTONS: 5-sec wave
-       =========================== */
-    .controls {
-      position:absolute;
-      bottom:8px;
-      left:50%;
-      transform:translateX(-50%);
-      display:grid;
-      grid-template-columns:repeat(9,36px);
-      gap:6px;
-      z-index:800;
-    }
-
-    .controls button {
-      width:36px;
-      height:36px;
-      border:none;
-      border-radius:10px;
-      font-size:18px;
-      cursor:pointer;
-      background:rgba(255,255,255,.95);
-      box-shadow:0 2px 6px rgba(0,0,0,.25);
-
-      /* Slow 5-second wave animation */
+    .controls button{
+      width:36px; height:36px; border:none; border-radius:10px; font-size:18px;
+      cursor:pointer; background:rgba(255,255,255,.95); box-shadow:0 2px 6px rgba(0,0,0,.25);
       animation: buttonHop 5s ease-in-out infinite;
     }
+    @keyframes buttonHop{ 0%,70%,100%{transform:translateY(0);} 20%{transform:translateY(-4px);} 40%{transform:translateY(0);} }
 
-    @keyframes buttonHop {
-      0%, 70%, 100% {
-        transform:translateY(0);
-      }
-      20% {
-        transform:translateY(-4px);
-      }
-      40% {
-        transform:translateY(0);
-      }
-    }
+    .controls button:nth-child(1){animation-delay:0s;}
+    .controls button:nth-child(2){animation-delay:.2s;}
+    .controls button:nth-child(3){animation-delay:.4s;}
+    .controls button:nth-child(4){animation-delay:.6s;}
+    .controls button:nth-child(5){animation-delay:.8s;}
+    .controls button:nth-child(6){animation-delay:1.0s;}
+    .controls button:nth-child(7){animation-delay:1.2s;}
+    .controls button:nth-child(8){animation-delay:1.4s;}
+    .controls button:nth-child(9){animation-delay:1.6s;}
+    .controls button:nth-child(10){animation-delay:1.8s;}
 
-    /* Stagger delays */
-    .controls button:nth-child(1) { animation-delay:0s; }
-    .controls button:nth-child(2) { animation-delay:.2s; }
-    .controls button:nth-child(3) { animation-delay:.4s; }
-    .controls button:nth-child(4) { animation-delay:.6s; }
-    .controls button:nth-child(5) { animation-delay:.8s; }
-    .controls button:nth-child(6) { animation-delay:1.0s; }
-    .controls button:nth-child(7) { animation-delay:1.2s; }
-    .controls button:nth-child(8) { animation-delay:1.4s; }
-    .controls button:nth-child(9) { animation-delay:1.6s; }
+    .controls button:active{ transform:scale(.97); }
+    .controls button[disabled]{ opacity:.5; cursor:not-allowed; }
 
-    .controls button:active { transform:scale(.97); }
-    .controls button[disabled] { opacity:.5; cursor:not-allowed; }
-
-    /* Hide attribution */
-    .leaflet-control-attribution { display:none!important; }
+    .leaflet-control-attribution{ display:none!important; }
   </style>
 </head>
 <body>
   <div class="title-overlay">UMPSA SHUTTLE TRACKER</div>
-
   <div class="status" id="status">Loading…</div>
 
   <div class="topbar" id="topbar">
@@ -388,9 +162,8 @@
         <label class="today-check"><input type="checkbox" id="todayOnly"> Today only</label>
       </div>
     </div>
-
     <button class="logo-btn" id="logoBtn" title="Tap to show/hide filters">
-      <img src="https://brand.umpsa.edu.my/images/2024/02/28/logo-cenderamata__735x732.png" alt="Widad UC Logo">
+      <img src="https://brand.umpsa.edu.my/images/2024/02/28/logo-cenderamata__735x732.png" alt="UMPSA Logo">
     </button>
   </div>
 
@@ -418,6 +191,7 @@
     <button id="btnLegend" title="Hide Active Shuttles">🙈</button>
     <button id="btnFollow" title="Follow shuttle">🎯</button>
     <button id="btnWake" title="Keep screen on">💤</button>
+    <button id="btnColorAll" title="Switch bus colors">🌈</button>
   </div>
 
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
@@ -452,20 +226,14 @@
     const btnLegend = document.getElementById("btnLegend");
     const btnFollow = document.getElementById("btnFollow");
     const btnWake = document.getElementById("btnWake");
+    const btnColorAll = document.getElementById("btnColorAll");
 
-    const map = L.map("map", {
-      zoomControl: true,
-      attributionControl: false
-    }).setView(HOME, 13);
+    const map = L.map("map", { zoomControl:true, attributionControl:false }).setView(HOME, 13);
 
     const layers = {
       osm: L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"),
-      esriImagery: L.tileLayer(
-        "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-      ),
-      esriStreets: L.tileLayer(
-        "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}"
-      )
+      esriImagery: L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"),
+      esriStreets: L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}")
     };
 
     map.createPane("labels");
@@ -474,24 +242,19 @@
 
     const labels = L.tileLayer(
       "https://stamen-tiles.a.ssl.fastly.net/toner-labels/{z}/{x}/{y}.png",
-      { pane: "labels", opacity: 0.9 }
+      { pane:"labels", opacity:0.9 }
     );
 
-    let baseOrder = ["osm", "esriImagery", "esriStreets"],
-        baseIdx = 0;
+    let baseOrder = ["osm","esriImagery","esriStreets"], baseIdx = 0;
     let baseLayer = layers[baseOrder[baseIdx]].addTo(map);
     if (!map.hasLayer(labels)) labels.addTo(map);
 
     function makeCircleChip(icon, border) {
       return `
         <div style="
-          width:40px;height:40px;
-          border-radius:50%;
-          background:#fff;
-          border:3px solid ${border};
-          display:flex;
-          align-items:center;
-          justify-content:center;
+          width:40px;height:40px;border-radius:50%;
+          background:#fff;border:3px solid ${border};
+          display:flex;align-items:center;justify-content:center;
           box-shadow:0 2px 6px rgba(0,0,0,.3);
         ">
           <div style="font-size:20px;">${icon}</div>
@@ -499,15 +262,14 @@
       `;
     }
 
-    /* HOME marker – default layer (below focused bus) */
     const homeMarker = L.marker(HOME, {
       icon: L.divIcon({
         html: makeCircleChip("🏫", "#2E7D32"),
-        iconSize: [44, 44],
-        iconAnchor: [22, 22]
+        iconSize:[44,44],
+        iconAnchor:[22,22]
       })
     }).addTo(map);
-    homeMarker.setZIndexOffset(0); // below focused buses
+    homeMarker.setZIndexOffset(0);
 
     let statusHoldUntil = 0;
     function setStatus(msg, holdMs = 0) {
@@ -518,13 +280,40 @@
       if (Date.now() > statusHoldUntil) statusEl.textContent = msg;
     }
 
-    const mutedPalette = [
-      "#2E86AB","#6C5B7B","#E07A5F","#3D405B","#8D99AE",
-      "#2A9D8F","#7F7CAF","#E76F51","#5C677D","#9C6644",
-      "#5B8FB9","#7D7461","#B56576","#6B705C","#7A9E9F"
+    // ✅ Bright palette (white removed)
+    const brightPalette = [
+      "#FF0000", // red
+      "#0000FF", // blue
+      "#006400", // dark green
+      "#00A000", // green
+      "#00FF00", // lime
+      "#FF00FF", // magenta
+      "#00FFFF", // cyan
+      "#FFFF00", // yellow
+      "#FF7A00", // orange
+      "#8A2BE2", // blueviolet
+      "#FF1493", // deeppink
+      "#00BFFF", // deepskyblue
+      "#000000"  // black
     ];
-    let colorIdx = 0;
-    const nextColor = () => mutedPalette[colorIdx++ % mutedPalette.length];
+
+    const STORAGE_KEY_COLORS = "umpsa_bus_colors_v1";
+    const STORAGE_KEY_ROT = "umpsa_bus_color_rot_v1";
+
+    let savedColors = {};
+    try { savedColors = JSON.parse(localStorage.getItem(STORAGE_KEY_COLORS) || "{}") || {}; }
+    catch { savedColors = {}; }
+
+    let colorRotation = 0;
+    try { colorRotation = parseInt(localStorage.getItem(STORAGE_KEY_ROT) || "0", 10) || 0; }
+    catch { colorRotation = 0; }
+
+    function saveColorState() {
+      try {
+        localStorage.setItem(STORAGE_KEY_COLORS, JSON.stringify(savedColors));
+        localStorage.setItem(STORAGE_KEY_ROT, String(colorRotation));
+      } catch {}
+    }
 
     function makeBusIcon(id, color) {
       return L.divIcon({
@@ -538,8 +327,8 @@
             <div style="font-size:12px;color:${color};font-weight:700;">${id}</div>
             <div style="font-size:20px;">🚌</div>
           </div>`,
-        iconSize: [44, 44],
-        iconAnchor: [22, 22]
+        iconSize:[44,44],
+        iconAnchor:[22,22]
       });
     }
 
@@ -551,32 +340,36 @@
     let firstLoadDone = false;
     let lastSnapshot = null;
 
-    function centerTo(ll) {
-      map.setView(ll, map.getZoom(), { animate: true });
-    }
+    function centerTo(ll) { map.setView(ll, map.getZoom(), { animate:true }); }
 
     function isToday(ts) {
       if (!ts) return false;
       return new Date(ts).toDateString() === new Date().toDateString();
     }
 
-    function todaysRows(rows) {
-      const today = new Date().toDateString();
-      const todayPts = rows.filter(
-        (r) => new Date(r.timestamp).toDateString() === today
-      );
-      return todayPts.slice(0, TRAIL_LIMIT_PER_DAY).reverse();
+    // ✅ Trails for latest day only (per route)
+    function latestDayRows(rows) {
+      if (!rows || !rows.length) return [];
+      let latestDateStr = null;
+      for (const r of rows) {
+        const d = r && r.timestamp ? new Date(r.timestamp) : null;
+        if (d && !isNaN(d)) { latestDateStr = d.toDateString(); break; } // rows[0] should be latest
+      }
+      if (!latestDateStr) return [];
+      const sameDay = rows.filter(r => {
+        if (!r || !r.timestamp) return false;
+        const d = new Date(r.timestamp);
+        return !isNaN(d) && d.toDateString() === latestDateStr;
+      });
+      return sameDay.slice(0, TRAIL_LIMIT_PER_DAY).reverse();
     }
 
     const addrCache = new Map();
     async function getAddress(lat, lng) {
       const key = lat.toFixed(5) + "," + lng.toFixed(5);
       if (addrCache.has(key)) return addrCache.get(key);
-
       try {
-        const res = await fetch(
-          `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`
-        );
+        const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
         const js = await res.json();
         const name = js.display_name || "";
         addrCache.set(key, name);
@@ -592,25 +385,19 @@
       if (r.destination) lines.push("Destination: " + r.destination);
       if (r.driver) lines.push("Driver: " + r.driver);
       if (r.plate) lines.push("Plate: " + r.plate);
-      if (r.speed_mps > 0)
-        lines.push("Speed: " + (r.speed_mps * 3.6).toFixed(1) + " km/h");
+      if (r.speed_mps > 0) lines.push("Speed: " + (r.speed_mps * 3.6).toFixed(1) + " km/h");
       if (addr) lines.push("Location: " + addr);
-      if (r.timestamp)
-        lines.push("Last update: " + new Date(r.timestamp).toLocaleString());
-
+      if (r.timestamp) lines.push("Last update: " + new Date(r.timestamp).toLocaleString());
       const link = `https://www.google.com/maps?q=${r.lat},${r.lng}`;
-      const dir = `https://www.google.com/maps/dir/?api=1&destination=${r.lat},${r.lng}`;
-
+      const dir  = `https://www.google.com/maps/dir/?api=1&destination=${r.lat},${r.lng}`;
       return `<b>Route ${id}</b><br>${lines.join("<br>")}
         <br><a href="${link}" target="_blank">📍 Open in Maps</a>
         &nbsp;&nbsp;<a href="${dir}" target="_blank">🚗 Directions</a>`;
     }
 
     function populateRoutes(data) {
-      const existing = new Set();
-      existing.add("ALL");
+      const existing = new Set(["ALL"]);
       Object.keys(data).forEach((k) => existing.add(k));
-
       const curr = routeFilterEl.value || "ALL";
 
       routeFilterEl.innerHTML = "";
@@ -628,20 +415,51 @@
       const arr = Array.from(set);
       arr.sort();
       busList = arr;
-      if (!currentFocus || !set.has(currentFocus)) {
-        currentFocus = busList[0] || null;
-      }
+      if (!currentFocus || !set.has(currentFocus)) currentFocus = busList[0] || null;
     }
 
     function highlightLegend(id) {
-      document
-        .querySelectorAll(".legend-item")
-        .forEach((x) => x.classList.remove("active"));
+      document.querySelectorAll(".legend-item").forEach((x) => x.classList.remove("active"));
       if (!id) return;
-      const found = document.querySelector(
-        `.legend-item[data-id="${CSS.escape(id)}"]`
-      );
+      const found = document.querySelector(`.legend-item[data-id="${CSS.escape(id)}"]`);
       if (found) found.classList.add("active");
+    }
+
+    function updateBusColor(id, newColor) {
+      const b = buses[id];
+      if (!b) return;
+      b.color = newColor;
+      b.marker.setIcon(makeBusIcon(id, newColor));
+      b.trail.setStyle({ color: newColor });
+      const item = document.querySelector(`.legend-item[data-id="${CSS.escape(id)}"]`);
+      if (item) {
+        const box = item.querySelector(".colorbox");
+        if (box) box.style.background = newColor;
+      }
+    }
+
+    function getColorForId(id, indexHint = 0) {
+      if (savedColors[id]) return savedColors[id];
+      const color = brightPalette[(indexHint + colorRotation) % brightPalette.length];
+      savedColors[id] = color;
+      return color;
+    }
+
+    function switchAllColors() {
+      colorRotation = (colorRotation + 1) % brightPalette.length;
+      const ids = busList.length ? busList.slice() : Object.keys(buses).sort();
+
+      ids.forEach((id, i) => { savedColors[id] = brightPalette[(i + colorRotation) % brightPalette.length]; });
+      ids.forEach((id) => { if (buses[id]) updateBusColor(id, savedColors[id]); });
+
+      if (currentFocus && buses[currentFocus]) {
+        buses[currentFocus].trail.bringToFront();
+        buses[currentFocus].trail.setStyle({ opacity:0.85, weight:5 });
+        buses[currentFocus].marker.setZIndexOffset(2000);
+      }
+
+      saveColorState();
+      setStatus("Bus colors switched", 1500);
     }
 
     function focusBus(id, openPopup = false) {
@@ -651,16 +469,15 @@
       Object.keys(buses).forEach((k) => {
         const bus = buses[k];
         if (k === id) {
-          bus.marker.setZIndexOffset(2000);   // focused bus on top
+          bus.marker.setZIndexOffset(2000);
           bus.trail.bringToFront();
-          bus.trail.setStyle({ opacity: 0.85, weight: 5 });
+          bus.trail.setStyle({ opacity:0.85, weight:5 });
         } else {
           bus.marker.setZIndexOffset(0);
-          bus.trail.setStyle({ opacity: 0, weight: 0 });
+          bus.trail.setStyle({ opacity:0, weight:0 });
         }
       });
 
-      // Home / My location sit BELOW focused bus
       homeMarker.setZIndexOffset(0);
       if (myLocMarker) myLocMarker.setZIndexOffset(0);
 
@@ -711,17 +528,8 @@
       return d;
     }
 
-    map.on("dragstart", () => {
-      followEnabled = false;
-      btnFollow.textContent = "🚫";
-      setStatus("Follow OFF (map moved)", 2000);
-    });
-
-    map.on("zoomstart", () => {
-      followEnabled = false;
-      btnFollow.textContent = "🚫";
-      setStatus("Follow OFF (zoom)", 2000);
-    });
+    map.on("dragstart", () => { followEnabled = false; btnFollow.textContent = "🚫"; setStatus("Follow OFF (map moved)", 2000); });
+    map.on("zoomstart", () => { followEnabled = false; btnFollow.textContent = "🚫"; setStatus("Follow OFF (zoom)", 2000); });
 
     async function updateMap(data) {
       lastSnapshot = data;
@@ -743,61 +551,56 @@
       const visible = new Set();
       const ids = Object.keys(data).sort();
 
-      for (const id of ids) {
+      for (let idx = 0; idx < ids.length; idx++) {
+        const id = ids[idx];
         const rows = data[id];
         if (!rows?.length) continue;
 
         const latest = rows[0];
-        const lat = +latest.lat,
-              lng = +latest.lng;
+        const lat = +latest.lat, lng = +latest.lng;
         if (!isFinite(lat) || !isFinite(lng)) continue;
 
         const fresh = isToday(latest.timestamp);
 
         if (onlyToday && !fresh) {
-          if (buses[id]) {
-            map.removeLayer(buses[id].marker);
-            map.removeLayer(buses[id].trail);
-          }
+          if (buses[id]) { map.removeLayer(buses[id].marker); map.removeLayer(buses[id].trail); }
           continue;
         }
-
         if (filter !== "ALL" && filter !== id) {
-          if (buses[id]) {
-            map.removeLayer(buses[id].marker);
-            map.removeLayer(buses[id].trail);
-          }
+          if (buses[id]) { map.removeLayer(buses[id].marker); map.removeLayer(buses[id].trail); }
           continue;
         }
 
         visible.add(id);
 
+        const color = getColorForId(id, idx);
+
         if (!buses[id]) {
-          const color = nextColor();
-          const icon = makeBusIcon(id, color);
-          const marker = L.marker([lat, lng], { icon }).addTo(map);
-          const trail = L.polyline([], { color, weight: 5, opacity: 0.85 }).addTo(map);
+          const marker = L.marker([lat, lng], { icon: makeBusIcon(id, color) }).addTo(map);
+          const trail  = L.polyline([], { color, weight:5, opacity:0.85 }).addTo(map);
           buses[id] = { marker, trail, color, latestRow: latest };
         } else {
           const b = buses[id];
           b.latestRow = latest;
+          b.color = color;
           if (!map.hasLayer(b.marker)) b.marker.addTo(map);
           if (!map.hasLayer(b.trail)) b.trail.addTo(map);
+          b.marker.setIcon(makeBusIcon(id, color));
+          b.trail.setStyle({ color });
         }
 
         const b = buses[id];
-        const pts = todaysRows(rows);
+        const pts = latestDayRows(rows);
         b.trail.setLatLngs(pts.map((p) => [+p.lat, +p.lng]));
         b.marker.setLatLng([lat, lng]);
 
-        // Default non-focused styling
         b.marker.setZIndexOffset(0);
-        b.trail.setStyle({ opacity: 0, weight: 0 });
+        b.trail.setStyle({ opacity:0, weight:0, color });
 
         b.marker.bindPopup(popupHTML(id, latest, ""));
         ensureMarkerClick(id);
 
-        legendEl.appendChild(makeLegendItem(id, latest, b.color, fresh));
+        legendEl.appendChild(makeLegendItem(id, latest, color, fresh));
       }
 
       Object.keys(buses).forEach((id) => {
@@ -808,6 +611,8 @@
       });
 
       rebuildBusList(visible);
+      busList.forEach((id, i) => { getColorForId(id, i); });
+      saveColorState();
 
       if (!firstLoadDone && currentFocus) {
         followEnabled = true;
@@ -815,45 +620,33 @@
         focusBus(currentFocus, false);
         firstLoadDone = true;
       }
-
       if (!currentFocus && busList.length) currentFocus = busList[0];
 
       Object.keys(buses).forEach((id) => {
         const b = buses[id];
         if (!b) return;
-        if (!visible.has(id)) {
-          b.trail.setStyle({ opacity: 0, weight: 0 });
-          return;
-        }
+        if (!visible.has(id)) { b.trail.setStyle({ opacity:0, weight:0 }); return; }
         if (id === currentFocus) {
-          b.trail.setStyle({ opacity: 0.85, weight: 5 });
+          b.trail.setStyle({ opacity:0.85, weight:5, color:b.color });
           b.marker.setZIndexOffset(2000);
         } else {
-          b.trail.setStyle({ opacity: 0, weight: 0 });
+          b.trail.setStyle({ opacity:0, weight:0, color:b.color });
           b.marker.setZIndexOffset(0);
         }
       });
 
-      if (followEnabled && currentFocus && buses[currentFocus]) {
-        centerTo(buses[currentFocus].marker.getLatLng());
-      }
-
+      if (followEnabled && currentFocus && buses[currentFocus]) centerTo(buses[currentFocus].marker.getLatLng());
       highlightLegend(currentFocus);
 
-      maybeStatus(
-        visible.size > 0
-          ? "Updated: " + new Date().toLocaleTimeString()
-          : "No shuttles"
-      );
+      maybeStatus(visible.size > 0 ? "Updated: " + new Date().toLocaleTimeString() : "No shuttles");
 
-      // After refresh: home & my location are kept "normal" (below any focused bus)
       homeMarker.setZIndexOffset(0);
       if (myLocMarker) myLocMarker.setZIndexOffset(0);
     }
 
     async function refresh() {
       try {
-        const res = await fetch(WEB_APP_URL + "?json=1", { cache: "no-store" });
+        const res = await fetch(WEB_APP_URL + "?json=1", { cache:"no-store" });
         const js = await res.json();
         if (js?.ok) updateMap(js.buses);
         else maybeStatus("Failed to load");
@@ -865,19 +658,15 @@
     refresh();
     setInterval(refresh, REFRESH_SEC * 1000);
 
-    /* Controls */
     btnHome.onclick = () => {
       centerTo(HOME);
       followEnabled = false;
       btnFollow.textContent = "🚫";
       setStatus("Home view (follow OFF)", 2000);
 
-      // Home on top when explicitly selected
       homeMarker.setZIndexOffset(2500);
       if (myLocMarker) myLocMarker.setZIndexOffset(0);
-      Object.keys(buses).forEach(id => {
-        if (buses[id]) buses[id].marker.setZIndexOffset(0);
-      });
+      Object.keys(buses).forEach(id => { if (buses[id]) buses[id].marker.setZIndexOffset(0); });
     };
 
     btnPrev.onclick = () => {
@@ -899,58 +688,41 @@
     };
 
     btnRecenter.onclick = () => {
-      if (!currentFocus || !buses[currentFocus]) {
-        setStatus("No focused route", 2000);
-        return;
-      }
+      if (!currentFocus || !buses[currentFocus]) { setStatus("No focused route", 2000); return; }
       followEnabled = true;
       btnFollow.textContent = "🎯";
       centerTo(buses[currentFocus].marker.getLatLng());
       highlightLegend(currentFocus);
       setStatus("Recentered", 2000);
-
-      // Focused bus should stay highest
       homeMarker.setZIndexOffset(0);
       if (myLocMarker) myLocMarker.setZIndexOffset(0);
       buses[currentFocus].marker.setZIndexOffset(2000);
     };
 
     btnMyLoc.onclick = () => {
-      if (!navigator.geolocation) {
-        setStatus("GPS not supported", 2000);
-        return;
-      }
+      if (!navigator.geolocation) { setStatus("GPS not supported", 2000); return; }
       navigator.geolocation.getCurrentPosition(
         (pos) => {
           const ll = L.latLng(pos.coords.latitude, pos.coords.longitude);
           if (!myLocMarker) {
             myLocMarker = L.marker(ll, {
-              icon: L.divIcon({
-                html: makeCircleChip("📍", "#1565C0"),
-                iconSize: [44, 44],
-                iconAnchor: [22, 22]
-              })
+              icon: L.divIcon({ html: makeCircleChip("📍", "#1565C0"), iconSize:[44,44], iconAnchor:[22,22] })
             }).addTo(map);
           } else {
             myLocMarker.setLatLng(ll);
           }
 
-          // My location on top when explicitly selected
           myLocMarker.setZIndexOffset(2500);
           homeMarker.setZIndexOffset(0);
-          Object.keys(buses).forEach(id => {
-            if (buses[id]) buses[id].marker.setZIndexOffset(0);
-          });
+          Object.keys(buses).forEach(id => { if (buses[id]) buses[id].marker.setZIndexOffset(0); });
 
           centerTo(ll);
           followEnabled = false;
           btnFollow.textContent = "🚫";
           setStatus("My location (follow OFF)", 2000);
         },
-        (err) => {
-          setStatus("GPS error: " + err.message, 2000);
-        },
-        { enableHighAccuracy: true }
+        (err) => setStatus("GPS error: " + err.message, 2000),
+        { enableHighAccuracy:true }
       );
     };
 
@@ -973,11 +745,15 @@
       followEnabled = !followEnabled;
       btnFollow.textContent = followEnabled ? "🎯" : "🚫";
       setStatus(followEnabled ? "Follow ON" : "Follow OFF", 2000);
-
       if (followEnabled && currentFocus && buses[currentFocus]) {
         centerTo(buses[currentFocus].marker.getLatLng());
         highlightLegend(currentFocus);
       }
+    };
+
+    btnColorAll.onclick = () => {
+      if (!busList.length && !Object.keys(buses).length) { setStatus("No buses", 1500); return; }
+      switchAllColors();
     };
 
     let wakeLock = null;
@@ -997,20 +773,14 @@
       }
     }
     async function releaseWakeLock() {
-      try {
-        if (wakeLock) await wakeLock.release();
-      } catch {}
+      try { if (wakeLock) await wakeLock.release(); } catch {}
       wakeLock = null;
       btnWake.textContent = "💤";
       setStatus("Wake Lock OFF", 1200);
     }
 
     btnWake.onclick = async () => {
-      if (!("wakeLock" in navigator)) {
-        setStatus("Wake Lock not supported", 2000);
-        btnWake.disabled = true;
-        return;
-      }
+      if (!("wakeLock" in navigator)) { setStatus("Wake Lock not supported", 2000); btnWake.disabled = true; return; }
       if (wakeLock) await releaseWakeLock();
       else await requestWakeLock();
     };
@@ -1022,22 +792,17 @@
       }
     });
 
-    /* Logo button tap → wobble + open/close filters */
     logoBtn.addEventListener("click", () => {
       logoBtn.classList.add("wobble");
       const open = topbar.classList.toggle("open");
       setStatus(open ? "Filters shown" : "Filters hidden", 1200);
     });
-
     logoBtn.addEventListener("animationend", (e) => {
-      if (e.animationName === "logoWobble") {
-        logoBtn.classList.remove("wobble");
-      }
+      if (e.animationName === "logoWobble") logoBtn.classList.remove("wobble");
     });
 
-    /* Filter changes rerender current snapshot */
-    routeFilterEl.onchange  = () => { if (lastSnapshot) updateMap(lastSnapshot); };
-    todayOnlyEl.onchange    = () => { if (lastSnapshot) updateMap(lastSnapshot); };
+    routeFilterEl.onchange = () => { if (lastSnapshot) updateMap(lastSnapshot); };
+    todayOnlyEl.onchange   = () => { if (lastSnapshot) updateMap(lastSnapshot); };
   </script>
 </body>
 </html>
